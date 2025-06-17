@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+pandas
+openai
+pytest
+pytest-asyncio
+httpx
+scikit-learn
+sentence-transformers
+diskcache
+python-dotenv
+python-multipart
+litellm
+k-means-constrained

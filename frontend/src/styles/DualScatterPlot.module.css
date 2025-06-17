@@ -1,0 +1,691 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-primary);
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 4px var(--shadow-color);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.toggleButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggleButton:hover {
+  background-color: var(--border-color);
+}
+
+.toggleButton.active {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+}
+
+.toggleButton.active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 4px;
+  background-color: var(--primary-color);
+  opacity: 0.1;
+}
+
+.toggleButton:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--shadow-color-dark);
+}
+
+.plotContainer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+}
+
+.loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-primary);
+  z-index: 10;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--border-color);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loadingText {
+  margin-top: 12px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.error {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-primary);
+  z-index: 10;
+}
+
+.errorIcon {
+  font-size: 2rem;
+  color: var(--text-error);
+  margin-bottom: 12px;
+}
+
+.errorText {
+  font-size: 0.9rem;
+  color: var(--text-error);
+  text-align: center;
+  max-width: 80%;
+}
+
+.dualPlotContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  position: relative;
+  gap: 1px;
+}
+
+.plotArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-height: 0;
+  overflow: visible;
+  background-color: #ffffff;
+  transition: all 0.3s ease;
+}
+
+.plotArea:first-child {
+  margin-bottom: 0px;
+  position: relative;
+}
+
+.plotArea:first-child::after {
+  content: '';
+  position: absolute;
+  bottom: -12px;
+  left: 0;
+  width: 100%;
+  height: 12px;
+  background-color: transparent;
+  z-index: 10;
+}
+
+.plotArea:last-child {
+  margin-top: -10px;
+  z-index: 1;
+}
+
+.plotArea svg {
+  width: 100%;
+  height: 100%;
+}
+
+.plotTitle {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.plotTitle h3 {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #4b5563;
+  margin: 0;
+  padding: 4px 8px;
+  display: inline-block;
+  background-color: rgba(255, 255, 255, 0.85);
+  border-radius: 3px;
+}
+
+.plotDescription {
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.plotDescription p {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin: 0;
+  padding: 4px 8px;
+  display: inline-block;
+  background-color: rgba(255, 255, 255, 0.85);
+  border-radius: 3px;
+}
+
+.dot {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  stroke: none;
+}
+
+.dot:hover {
+  stroke: #2c3e50;
+  stroke-width: 1px;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.2));
+}
+
+.selectedDot {
+  stroke: #2c3e50;
+  stroke-width: 1.5px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+}
+
+.zeroLine {
+  stroke: #cbd5e1;
+  stroke-width: 1px;
+  stroke-dasharray: 3,3;
+}
+
+.tooltip {
+  position: absolute;
+  background-color: white;
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #2c3e50;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+  max-width: 250px;
+  z-index: 100;
+  border: 1px solid #eaecef;
+}
+
+.tooltipContent {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  background-color: white;
+  transform: translateX(-50%) rotate(45deg);
+  box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.05);
+  z-index: -1;
+  border-right: 1px solid #eaecef;
+  border-bottom: 1px solid #eaecef;
+}
+
+.controlsContainer {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  padding: 4px;
+  border: 1px solid #eaecef;
+}
+
+.resetButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  background-color: #f5f7fa;
+  color: #4b5563;
+  border: 1px solid #e5e7eb;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.resetButton:hover {
+  background-color: #e5e7eb;
+}
+
+.resetButton svg {
+  margin-right: 4px;
+  width: 12px;
+  height: 12px;
+}
+
+/* 图例开关按钮样式 */
+.toggleButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  background-color: #f5f7fa;
+  color: #4b5563;
+  border: 1px solid #e5e7eb;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.toggleButton:hover {
+  background-color: #e5e7eb;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.toggleButton:active {
+  transform: translateY(1px);
+}
+
+.toggleButton.active {
+  background-color: #d1d5db;
+  color: #1f2937;
+  border-color: #9ca3af;
+}
+
+.toggleButton.active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: #4e7ad1;
+}
+
+.toggleButton:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(78, 122, 209, 0.3);
+}
+
+.clusterLegend {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  padding: 6px;
+  font-size: 0.75rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  max-width: 180px;
+  max-height: 35%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  border: 1px solid #eaecef;
+}
+
+.clusterLegend::-webkit-scrollbar {
+  width: 4px;
+}
+
+.clusterLegend::-webkit-scrollbar-track {
+  background: #f5f7fa;
+}
+
+.clusterLegend::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+  border-radius: 20px;
+}
+
+.legendTitle {
+  font-weight: 500;
+  color: #4b5563;
+  margin-bottom: 4px;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  color: #4b5563;
+}
+
+.legendColorBox {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.legendLabel {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hoveredPoint {
+  opacity: 0.9;
+  stroke: #2c3e50;
+  stroke-width: 1.5px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.05));
+}
+
+/* Force axis visibility */
+.axis path,
+.axis line {
+  stroke: #cbd5e1 !important;
+  stroke-width: 1px !important;
+}
+
+.axis text {
+  fill: #64748b !important;
+  font-size: 10px !important;
+}
+
+.axisTitle {
+  fill: #4b5563 !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+}
+
+/* Media queries for responsive layouts */
+@media (max-width: 768px) {
+  .plotArea {
+    min-height: 250px;
+  }
+  
+  .plotArea:last-child {
+    margin-top: -15px; /* Slightly less movement on smaller screens */
+  }
+  
+  .plotArea:first-child::after {
+    height: 10px;
+  }
+  
+  .controlsContainer {
+    padding: 3px;
+  }
+  
+  .resetButton {
+    padding: 3px 6px;
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .dualPlotContainer {
+    flex-direction: column;
+  }
+  
+  .plotArea {
+    min-height: 220px;
+  }
+  
+  .plotArea:last-child {
+    margin-top: -10px; /* Even less movement on very small screens */
+  }
+  
+  .plotArea:first-child::after {
+    height: 8px;
+  }
+  
+  .plotTitle h3 {
+    font-size: 0.8rem;
+  }
+  
+  .plotDescription p {
+    font-size: 0.7rem;
+  }
+}
+
+/* Shared legend styles */
+.sharedLegendContainer {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  z-index: 30;
+  max-width: 180px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.legendSection {
+  margin-bottom: 10px;
+}
+
+.legendSection:last-child {
+  margin-bottom: 0;
+}
+
+.legendTitle {
+  font-weight: 600;
+  font-size: 12px;
+  margin: 0 0 8px 0;
+  color: #374151;
+  text-align: center;
+}
+
+.legendDesc {
+  font-size: 10px;
+  color: #6b7280;
+  margin: 4px 0 0 0;
+  text-align: center;
+}
+
+.legendList {
+  padding: 0;
+  margin: 4px 0;
+  list-style: none;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+
+.legendItem:last-child {
+  margin-bottom: 0;
+}
+
+.legendShape {
+  width: 12px;
+  height: 12px;
+  margin-right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.legendColor {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  margin-right: 8px;
+}
+
+.negativeShape {
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 12px solid #6b7280;
+  margin-bottom: 2px;
+}
+
+.positiveShape {
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 12px solid #6b7280;
+  margin-top: 2px;
+}
+
+.unclearShape {
+  width: 12px;
+  height: 12px;
+  background-color: #6b7280;
+  transform: rotate(45deg);
+}
+
+.legendLabel {
+  color: #4b5563;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .sharedLegendContainer {
+    position: relative;
+    top: auto;
+    right: auto;
+    transform: none;
+    margin: 8px auto;
+    max-width: 90%;
+    flex-direction: row;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 24px;
+    padding: 12px;
+  }
+  
+  .legendSection {
+    flex: 1;
+    min-width: 130px;
+    max-width: 160px;
+    margin-bottom: 0;
+  }
+}
+
+.singlePlotArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-height: 100%;
+  height: 100%;
+  overflow: visible;
+  background-color: #ffffff;
+  transition: all 0.3s ease;
+}
+
+/* Add styles for plot titles */
+.plotTitle {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.plotTitle h3 {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #4b5563;
+  margin: 0;
+  padding: 4px 8px;
+  display: inline-block;
+  background-color: rgba(255, 255, 255, 0.85);
+  border-radius: 4px;
+}
+
+.svgContainer {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scatterPlot {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  pointer-events: all;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.scatterPlot:active {
+  cursor: grabbing;
+} 

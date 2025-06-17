@@ -1,0 +1,357 @@
+.item {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  min-width: 0;
+  background-color: var(--bg-primary);
+  max-height: none;
+  overflow: visible;
+  margin-bottom: 4px;
+}
+
+.item:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 4px var(--shadow-color);
+}
+
+.item.selected {
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 8px var(--shadow-color-dark);
+}
+
+.item.expanded {
+  overflow: visible;
+}
+
+.item::-webkit-scrollbar {
+  width: 4px;
+}
+
+.item::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+}
+
+.item::-webkit-scrollbar-thumb {
+  background: var(--border-color-hover);
+  border-radius: 2px;
+}
+
+.item::-webkit-scrollbar-thumb:hover {
+  background: var(--text-light);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-primary);
+  z-index: 1;
+  min-height: 24px;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.headerInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headerCluster {
+  font-weight: 600;
+  color: var(--primary-color);
+  flex-shrink: 0;
+}
+
+.headerAnnotation {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.headerHateSpeech {
+  background-color: var(--bg-error-light, #fef2f2);
+  color: var(--text-error, #b91c1c);
+  border: 1px solid var(--border-error-light, #fecaca);
+}
+
+.headerNotHateSpeech {
+  background-color: var(--bg-success-light, #f0fdf4);
+  color: var(--text-success, #15803d);
+  border: 1px solid var(--border-success-light, #bbf7d0);
+}
+
+.headerUnclear {
+  background-color: var(--bg-tertiary, #f3f4f6);
+  color: var(--text-light, #4b5563);
+  border: 1px solid var(--border-color, #d1d5db);
+}
+
+.headerConfidence {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.confidenceIncrease {
+  color: #15803d;
+  font-size: 0.6rem;
+  font-weight: 700;
+  margin-left: 3px;
+  background-color: rgba(21, 128, 61, 0.1);
+  padding: 1px 3px;
+  border-radius: 2px;
+  border: 1px solid rgba(21, 128, 61, 0.2);
+}
+
+.confidenceDecrease {
+  color: #b91c1c;
+  font-size: 0.6rem;
+  font-weight: 700;
+  margin-left: 3px;
+  background-color: rgba(185, 28, 28, 0.1);
+  padding: 1px 3px;
+  border-radius: 2px;
+  border: 1px solid rgba(185, 28, 28, 0.2);
+}
+
+.headerPreview {
+  color: var(--text-primary);
+  font-style: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.clusterBadge, .confidenceBadge {
+  display: none;
+}
+
+.expandIcon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: var(--bg-tertiary);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+}
+
+.expandIcon:hover {
+  background-color: var(--border-color);
+  transform: scale(1.1);
+}
+
+.chevron {
+  transition: transform 0.2s ease;
+  color: var(--text-secondary);
+}
+
+.expanded .chevron {
+  transform: rotate(180deg);
+}
+
+.content {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+  animation: fadeIn 0.2s ease;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.section {
+  margin-bottom: 12px;
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}
+
+.sectionTitle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 4px 0;
+}
+
+.text {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.gridItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.label {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.value {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.hateSpeech {
+  background-color: var(--bg-error-light, #fef2f2);
+  color: var(--text-error, #b91c1c);
+}
+
+.notHateSpeech {
+  background-color: var(--bg-success-light, #f0fdf4);
+  color: var(--text-success, #15803d);
+}
+
+.unclearAnnotation {
+  background-color: var(--bg-tertiary);
+  color: var(--text-light);
+}
+
+.analysis {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.improvement {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background-color: #fffbeb;
+  padding: 8px;
+  border-radius: 4px;
+  margin: 0;
+}
+
+/* 响应式调整 */
+@media (max-width: 1280px) {
+  .item {
+    padding: 6px;
+    margin-bottom: 3px;
+  }
+  
+  .headerLeft {
+    font-size: 0.75rem;
+  }
+
+  .headerInfo {
+    gap: 6px;
+  }
+  
+  .section {
+    margin-bottom: 10px;
+  }
+  
+  .sectionTitle {
+    font-size: 0.75rem;
+    margin-bottom: 4px;
+  }
+  
+  .text, .analysis, .improvement {
+    font-size: 0.75rem;
+    line-height: 1.3;
+  }
+  
+  .improvement {
+    padding: 6px;
+  }
+  
+  .expandIcon {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 768px) {
+  .item {
+    padding: 5px;
+    margin-bottom: 2px;
+  }
+  
+  .headerLeft {
+    font-size: 0.7rem;
+  }
+
+  .headerInfo {
+    gap: 4px;
+  }
+  
+  .content {
+    margin-top: 6px;
+    padding-top: 6px;
+  }
+  
+  .section {
+    margin-bottom: 8px;
+  }
+  
+  .sectionTitle {
+    font-size: 0.7rem;
+    margin-bottom: 3px;
+  }
+  
+  .grid {
+    gap: 6px;
+  }
+  
+  .expandIcon {
+    width: 16px;
+    height: 16px;
+  }
+} 

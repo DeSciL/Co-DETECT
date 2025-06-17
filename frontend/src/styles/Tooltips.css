@@ -1,0 +1,18 @@
+/* Custom styles for Ant Design tooltips to make them more compact */
+.ant-tooltip .ant-tooltip-inner {
+  font-size: 12px;
+  padding: 4px 8px;
+  min-height: 24px;
+  line-height: 1.2;
+}
+
+/* Reduce the arrow size */
+.ant-tooltip .ant-tooltip-arrow {
+  width: 10px;
+  height: 10px;
+}
+
+/* Ensure consistent positioning */
+.ant-tooltip {
+  max-width: 200px;
+} 

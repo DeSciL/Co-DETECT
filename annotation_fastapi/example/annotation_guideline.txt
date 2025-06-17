@@ -1,0 +1,8 @@
+Please annotate if a social media post contains hate speech or not.
+
+A post contains hate speech if it contains any of the following aspects:
+- Assaults on Human Dignity: Does the post demean or degrade individuals or groups based on race, ethnicity, gender, religion, sexual orientation, or other protected characteristics?
+- Calls for Violence: Does the post incite or encourage physical harm or violence against individuals or groups?
+- Vulgarity and/or Offensive Language: Does the post contain profanity, slurs, or other offensive language that may or may not be directed at individuals or groups?
+
+Labels: 1 (the post contains hate speech) or 0 (the post contains no hate speech)

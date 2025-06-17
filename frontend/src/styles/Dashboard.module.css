@@ -1,0 +1,1673 @@
+.dashboard {
+  height: 100vh;
+  width: 100vw;
+  background-color: var(--bg-secondary);
+  display: flex;
+  gap: 8px;
+  padding: 16px;
+  margin: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+
+.dashboard.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.loadingContainer, .errorContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  width: 100vw;
+  background-color: var(--bg-secondary);
+}
+
+.loadingSpinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top-color: var(--primary-color);
+  animation: spin 1s ease-in-out infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loadingContainer p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.errorContainer {
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 24px;
+  background-color: var(--bg-primary);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px 0 var(--shadow-color), 0 1px 2px -1px var(--shadow-color);
+  text-align: center;
+}
+
+.errorContainer h2 {
+  color: #ef4444;
+  margin-bottom: 16px;
+}
+
+.errorContainer p {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+
+.noDataMessage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  padding: 20px;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  text-align: center;
+  background-color: var(--bg-tertiary);
+  border-radius: 8px;
+  border: 1px dashed var(--border-color-hover);
+}
+
+.guidelinesPanel {
+  min-width: 280px;
+  max-width: 40%;
+  height: calc(100vh - 32px);
+  background: var(--bg-primary);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px var(--shadow-color);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  border: 1px solid var(--border-color);
+  position: relative;
+}
+
+.rightPanel {
+  min-width: 360px;
+  max-width: 50%;
+  height: calc(100vh - 32px);
+  background: var(--bg-primary);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px var(--shadow-color);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  border: 1px solid var(--border-color);
+  position: relative;
+}
+
+.centerPanel {
+  flex: 1;
+  min-width: 400px;
+  height: calc(100vh - 32px);
+  background: var(--bg-primary);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px var(--shadow-color);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  border: 1px solid var(--border-color);
+  position: relative;
+}
+
+/* Add resizer styles */
+.guidelinesPanel::after,
+.rightPanel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 100%;
+  background: transparent;
+  cursor: col-resize;
+  z-index: 10;
+  transition: background-color 0.2s ease;
+}
+
+.guidelinesPanel::after {
+  right: -4px;
+}
+
+.rightPanel::before {
+  left: -4px;
+}
+
+/* Add hover effect for resizers */
+.guidelinesPanel::after:hover,
+.rightPanel::before:hover,
+.guidelinesPanel::after:active,
+.rightPanel::before:active {
+  background: var(--primary-color);
+  opacity: 0.2;
+}
+
+/* Add visual indicator for resizable areas */
+.guidelinesPanel::after::before,
+.rightPanel::before::before {
+  content: '⋮';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--text-secondary);
+  font-size: 16px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.guidelinesPanel::after:hover::before,
+.rightPanel::before:hover::before {
+  opacity: 1;
+}
+
+/* Add active state for resizing */
+.resizing {
+  user-select: none;
+  cursor: col-resize;
+}
+
+.resizing * {
+  pointer-events: none;
+}
+
+/* Add visual feedback during resize */
+.resizing .guidelinesPanel::after,
+.resizing .rightPanel::before {
+  background: var(--primary-color);
+  opacity: 0.2;
+}
+
+.splitPanels, .splitDetailsContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg-primary);
+  gap: 0;
+}
+
+.guidelineSection, .summarySection, .detailsSection {
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.guidelineSection, .detailsSection:first-child {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.guidelineSection, .summarySection {
+  height: auto;
+}
+
+/* 基础header样式 */
+.sectionHeader,
+.panelHeader,
+.detailsSection .panelHeader,
+.centerPanel.withDualPlots .panelHeader {
+  height: 42px;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  background: linear-gradient(to right, var(--bg-tertiary), var(--bg-secondary));
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
+  gap: 8px;
+}
+
+/* 统一的装饰条样式 */
+.sectionHeader::after,
+.panelHeader::after,
+.detailsSection .panelHeader::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  height: 18px;
+  width: 3px;
+  background-color: var(--primary-color);
+  border-radius: 0 2px 2px 0;
+  opacity: 0.8;
+}
+
+/* 统一的标题文字样式 */
+.sectionHeader h2,
+.panelHeader h2,
+.detailsSection .panelHeader h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  cursor: text;
+  flex: 1;
+  user-select: text;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+}
+
+/* 移除中间面板的特殊样式 */
+.centerPanel .panelHeader::after {
+  display: none;
+}
+
+/* 移除右侧面板的特殊样式覆盖 */
+.rightPanel .sectionHeader,
+.rightPanel .sectionHeader:hover,
+.rightPanel .sectionHeader h2,
+.rightPanel .sectionHeader:hover h2 {
+  background: linear-gradient(to right, var(--bg-tertiary), var(--bg-secondary));
+  color: var(--text-primary);
+}
+
+/* 移除detailsSection的特殊样式覆盖 */
+.detailsSection .sectionHeader,
+.detailsSection .sectionHeader:hover,
+.detailsSection .sectionHeader h2,
+.detailsSection .sectionHeader:hover h2 {
+  background: linear-gradient(to right, var(--bg-tertiary), var(--bg-secondary));
+  color: var(--text-primary);
+}
+
+.guidelinesContent {
+  padding: 16px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  background-color: var(--bg-primary);
+  border-radius: 0 0 8px 8px;
+  overflow-y: auto;
+  max-height: calc(100% - 42px); /* 减去header的高度 */
+}
+
+.clusterSummaryContainer {
+  padding: 16px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  background-color: var(--bg-primary);
+  border-radius: 0 0 8px 8px;
+  overflow-y: auto;
+  max-height: calc(100% - 42px); /* 减去header的高度 */
+}
+
+.clusterSummaryContainer::-webkit-scrollbar {
+  width: 6px;
+}
+
+.clusterSummaryContainer::-webkit-scrollbar-track {
+  background: #f5f7fa;
+  border-radius: 3px;
+}
+
+.clusterSummaryContainer::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.clusterSummaryContainer::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* 移除内部容器的滚动条样式 */
+.clusterSummaryContainer > div {
+  overflow: visible;
+}
+
+.guidelinesText {
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  line-height: 1.6;
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px var(--shadow-color);
+}
+
+.guidelinesText pre {
+  margin: 0;
+  font-family: inherit;
+  white-space: pre-wrap;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.examplesPreview {
+  padding: 0 20px 20px;
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+  max-height: 30%;
+  display: flex;
+  flex-direction: column;
+}
+
+.examplesPreview h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 15px 0 10px;
+}
+
+.examplesList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  max-height: calc(100% - 35px);
+  padding-right: 5px;
+}
+
+.exampleItem {
+  padding: 12px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.exampleItem p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.moreExamples {
+  padding: 8px;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.85rem;
+  background-color: #f1f5f9;
+  border-radius: 6px;
+  margin-top: 5px;
+}
+
+.scatterPlotContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  height: 100%;
+  background-color: #f5f8fa;
+  padding: 8px;
+  border-radius: 0 0 12px 12px;
+}
+
+/* Styles for when using DualScatterPlot */
+.centerPanel.withDualPlots {
+  overflow: visible; /* Allow axes to overflow */
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.centerPanel.withDualPlots .scatterPlotContainer {
+  overflow: visible; /* Allow axes to overflow */
+  padding: 16px;
+  flex: 1;
+  min-height: 0; /* Important for Firefox */
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff;
+}
+
+.detailsContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.details {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  color: #4b5563;
+  background-color: #f8fafc;
+  border-radius: 8px;
+  margin: 4px;
+}
+
+/* Scrollbar styles */
+.details::-webkit-scrollbar,
+.guidelinesContent::-webkit-scrollbar,
+.detailsContainer::-webkit-scrollbar {
+  width: 6px;
+}
+
+.details::-webkit-scrollbar-track,
+.guidelinesContent::-webkit-scrollbar-track,
+.detailsContainer::-webkit-scrollbar-track {
+  background: #f5f7fa;
+  border-radius: 3px;
+}
+
+.details::-webkit-scrollbar-thumb,
+.guidelinesContent::-webkit-scrollbar-thumb,
+.detailsContainer::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.details::-webkit-scrollbar-thumb:hover,
+.guidelinesContent::-webkit-scrollbar-thumb:hover,
+.detailsContainer::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Add scrollbar styles for the examples list */
+.examplesList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.examplesList::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.examplesList::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.examplesList::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* 按钮样式 */
+.backButton {
+  padding: 6px 12px;
+  background-color: #f5f7fa;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  color: #4b5563;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.backButton:before {
+  content: '←';
+  font-size: 14px;
+}
+
+.backButton:hover {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+/* 修改回退按钮位置的样式 */
+.centerPanel .backButton {
+  position: absolute;
+  left: 16px; /* 改为左对齐 */
+  z-index: 2;
+}
+
+/* 使中间标题居中，考虑左侧按钮的位置 */
+.centerPanel .panelHeader h2 {
+  flex: 1;
+  text-align: center;
+  margin-left: 20px; /* 为左侧按钮留出空间 */
+}
+
+/* 移除多余的内容分隔线显示 */
+.detailsSection:first-child:after,
+.guidelineSection:after {
+  display: none;
+}
+
+/* 响应式设计调整，保持对称 */
+@media (min-width: 1921px) {
+  /* 适用于超大屏幕，比如27寸显示器 */
+  .guidelinesPanel {
+    flex: 0 0 350px;
+    width: auto;
+  }
+  
+  .rightPanel {
+    flex: 0 0 550px;
+    width: auto;
+  }
+}
+
+@media (max-width: 1920px) {
+  .guidelinesPanel {
+    flex: 0 0 320px;
+    width: auto;
+  }
+  
+  .rightPanel {
+    flex: 0 0 480px;
+    width: auto;
+  }
+}
+
+@media (max-width: 1600px) {
+  .guidelinesPanel {
+    flex: 0 0 300px;
+    width: auto;
+  }
+  
+  .rightPanel {
+    flex: 0 0 450px;
+    width: auto;
+  }
+}
+
+@media (max-width: 1280px) {
+  .dashboard {
+    padding: 16px;
+    gap: 16px;
+  }
+  
+  .guidelinesPanel {
+    flex: 0 0 260px;
+    width: auto;
+    min-width: 220px;
+  }
+  
+  .rightPanel {
+    flex: 0 0 380px;
+    width: auto;
+    min-width: 320px;
+  }
+  
+  .sectionHeader, 
+  .panelHeader,
+  .detailsSection .panelHeader {
+    height: 42px;
+    min-height: 42px;
+    padding: 0 14px;
+    justify-content: center;
+  }
+  
+  .sectionHeader h2, 
+  .panelHeader h2,
+  .detailsSection .panelHeader h2 {
+    font-size: 0.95rem;
+  }
+  
+  .centerPanel .backButton {
+    left: 12px;
+  }
+  
+  .centerPanel .panelHeader h2 {
+    margin-left: 15px;
+  }
+  
+  .splitPanels, .splitDetailsContainer {
+    height: auto;
+    flex: 1;
+  }
+  
+  .guidelinesContent, .clusterSummaryContainer, .detailsContainer {
+    max-height: none;
+  }
+  
+  .detailsSection .detailsContainer {
+    height: calc(100% - 42px);
+  }
+  
+  .sectionHeader::after, 
+  .panelHeader::after,
+  .detailsSection .panelHeader::after {
+    height: 16px;
+    top: 13px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .dashboard {
+    position: relative;
+    height: auto;
+    flex-direction: column;
+    overflow: auto;
+    padding: 14px;
+    gap: 14px;
+  }
+
+  .guidelinesPanel, .rightPanel, .centerPanel {
+    height: auto;
+    width: 100%;
+    max-width: none;
+    flex: none;
+    min-height: 300px;
+  }
+  
+  /* Right panel should show a bit more content in this layout */
+  .rightPanel .detailsSection {
+    min-height: 350px;
+  }
+
+  .details {
+    max-height: 500px;
+  }
+  
+  .splitPanels, .splitDetailsContainer {
+    flex-direction: column;
+  }
+  
+  .guidelinesContent, .clusterSummaryContainer {
+    max-height: 300px;
+  }
+  
+  .guidelineSection, .summarySection {
+    max-height: 400px;
+  }
+  
+  .splitDetailsContainer {
+    height: auto;
+    max-height: 800px;
+  }
+  
+  .detailsSection:first-child {
+    height: auto;
+    max-height: 400px;
+  }
+  
+  .detailsSection:last-child {
+    height: auto;
+    max-height: 400px;
+  }
+  
+  .detailsSection .panelHeader {
+    height: 38px;
+    min-height: 38px;
+    padding: 0 12px;
+    justify-content: center;
+  }
+  
+  .detailsSection .panelHeader h2 {
+    font-size: 0.95rem;
+  }
+  
+  .detailsSection .detailsContainer {
+    height: calc(100% - 38px);
+  }
+  
+  .sectionHeader::after, 
+  .panelHeader::after,
+  .detailsSection .panelHeader::after {
+    height: 16px;
+    top: 13px;
+  }
+  
+  .centerPanel .backButton {
+    left: 10px;
+    top: 8px;
+  }
+  
+  .centerPanel .panelHeader h2 {
+    margin-left: 10px;
+    margin-top: 10px;
+  }
+}
+
+@media (max-width: 768px) {
+  /* 保持按钮在移动端也有一致的尺寸和样式 */
+  .addExampleButton, .collapseAllButton {
+    width: 24px;
+    height: 24px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* 保持按钮在小屏幕上也有一致的尺寸和样式 */
+  .addExampleButton, .collapseAllButton {
+    width: 24px;
+    height: 24px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard {
+    padding: 10px;
+    gap: 10px;
+  }
+  
+  .guidelinesPanel h2, .centerPanel h2, .rightPanel h2 {
+    font-size: 0.95rem;
+  }
+  
+  .guidelinesContent, .details {
+    padding: 12px;
+  }
+  
+  .panelHeader, 
+  .sectionHeader,
+  .detailsSection .panelHeader {
+    height: 38px;
+    min-height: 38px;
+    justify-content: center;
+    padding: 0 12px;
+  }
+  
+  .panelHeader h2,
+  .sectionHeader h2,
+  .detailsSection .panelHeader h2 {
+    font-size: 0.9rem;
+  }
+  
+  .backButton {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+  
+  .centerPanel .backButton {
+    left: 8px;
+    top: 6px;
+  }
+  
+  .centerPanel .panelHeader h2 {
+    margin-left: 8px;
+    margin-top: 8px;
+  }
+  
+  .splitPanels, .splitDetailsContainer {
+    flex-direction: column;
+  }
+  
+  .guidelinesContent, .clusterSummaryContainer {
+    max-height: none;
+    height: auto;
+  }
+  
+  .guidelineSection, .summarySection {
+    max-height: none;
+  }
+  
+  .detailsSection .detailsContainer {
+    height: calc(100% - 38px);
+  }
+  
+  .sectionHeader::after, 
+  .panelHeader::after,
+  .detailsSection .panelHeader::after {
+    height: 14px;
+    top: 12px;
+    width: 3px;
+  }
+  
+  .backButton:before {
+    font-size: 12px;
+  }
+}
+
+/* 隐藏原来的操作栏，因为按钮已经移至中间面板 */
+.actionBar {
+  display: none;
+}
+
+/* Suggestions Section */
+.suggestionsSection {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f0f4f9;
+  border-radius: 8px;
+  border-left: 4px solid #4f7ad1;
+}
+
+.suggestionsSection h3 {
+  font-size: 16px;
+  margin-bottom: 12px;
+  color: #2c3e50;
+  text-align: center;
+}
+
+.suggestionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.suggestionItem {
+  padding: 12px;
+  background-color: #fff;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+}
+
+.suggestionItem h4 {
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: #4e9cff;
+  text-align: center;
+}
+
+.suggestionItem p {
+  font-size: 13px;
+  color: #4a5568;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Improvement Section */
+.improvementSection {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f0f4f9;
+  border-radius: 8px;
+  border-left: 4px solid #7c5fc9;
+}
+
+.improvementSection h3 {
+  font-size: 16px;
+  margin-bottom: 12px;
+  color: #2c3e50;
+  text-align: center;
+}
+
+.improvementList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.improvementItem {
+  padding: 12px;
+  background-color: #fff;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+}
+
+.improvementText {
+  font-size: 13px;
+  color: #4a5568;
+  line-height: 1.4;
+  margin: 0 0 8px 0;
+}
+
+.improvementMeta {
+  display: flex;
+  gap: 8px;
+}
+
+.clusterBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #fff;
+  background-color: #7c5fc9;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(124, 95, 201, 0.2);
+}
+
+.detailsSection {
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.detailsSection.expanded {
+  flex: 1;
+  min-height: 0;
+}
+
+.detailsSection.collapsed {
+  flex: 0;
+  min-height: 42px;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  user-select: none;
+}
+
+/* Update the height calculations for expanded sections */
+.detailsSection.expanded {
+  height: calc(50% - 21px);
+}
+
+/* When one section is collapsed, the other should take full height */
+.detailsSection.expanded + .detailsSection.collapsed,
+.detailsSection.collapsed + .detailsSection.expanded {
+  height: calc(100% - 42px);
+}
+
+/* Ensure the buttons don't trigger section collapse */
+.addExampleButton, .collapseAllButton {
+  position: relative;
+  z-index: 2;
+  cursor: pointer !important;
+}
+
+/* Update splitDetailsContainer to handle dynamic heights */
+.splitDetailsContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg-primary);
+}
+
+/* Ensure content is properly contained */
+.detailsContainer {
+  height: 100%;
+  overflow-y: auto;
+  transition: all 0.3s ease;
+}
+
+/* Add hover effect for section headers */
+.detailsSection .sectionHeader:hover {
+  background: linear-gradient(to right, var(--bg-tertiary), var(--bg-secondary));
+}
+
+.detailsSection .sectionHeader:hover h2 {
+  color: var(--text-primary);
+}
+
+/* Ensure smooth transitions */
+.detailsSection, .detailsContainer {
+  transition: all 0.3s ease;
+}
+
+/* Add a subtle shadow to indicate clickable headers */
+.detailsSection .sectionHeader {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Add a subtle hover effect for the expand icon */
+.detailsSection .expandIcon {
+  opacity: 0.7;
+  transition: all 0.2s ease;
+}
+
+.detailsSection .sectionHeader:hover .expandIcon {
+  opacity: 0.7;
+  color: var(--text-secondary);
+}
+
+/* Ensure buttons remain clickable */
+.headerActions button {
+  position: relative;
+  z-index: 2;
+}
+
+/* Prevent button clicks from triggering section collapse */
+.headerActions button:hover {
+  z-index: 3;
+}
+
+/* Update the section header to accommodate the new layout */
+.detailsSection .sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
+  height: 42px;
+  cursor: pointer;
+  user-select: none;
+  background: linear-gradient(to right, var(--bg-tertiary), var(--bg-secondary));
+}
+
+/* Ensure the expand icon and buttons are properly aligned */
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* Add a subtle transition for the expand icon */
+.expandIcon {
+  color: var(--text-secondary);
+  transition: transform 0.3s ease;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.expandIcon.expanded {
+  transform: rotate(180deg);
+}
+
+.guidelineSection {
+  margin-bottom: 0;
+}
+
+.guidelineHeader {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #333;
+  margin: 10px 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.guidelineHeader:first-child {
+  margin-top: 0;
+}
+
+.taskInput {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: all 0.3s;
+  margin-bottom: 20px;
+  background-color: var(--bg-primary);
+  min-height: 120px;
+  resize: vertical;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.taskInput:hover {
+  border-color: #40a9ff;
+}
+
+.taskInput:focus {
+  border-color: #40a9ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  outline: none;
+}
+
+.criteriaList {
+  margin-bottom: 20px;
+}
+
+.criterionItem {
+  margin: 8px 0;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  background-color: var(--bg-secondary);
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  font-size: 14px;
+}
+
+.criterionItem span {
+  font-size: 14px;
+}
+
+.removeCriterionButton {
+  background: none;
+  border: none;
+  color: var(--remove-red);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.removeCriterionButton:hover {
+  color: white;
+  background-color: var(--remove-red);
+}
+
+.removeCriterionButton:active {
+  background-color: var(--remove-red-active);
+}
+
+.removeCriterionButton:disabled {
+  color: #d9d9d9;
+  cursor: not-allowed;
+}
+
+.addCriterionContainer {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.criterionInput {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: all 0.3s;
+  background-color: var(--bg-primary);
+}
+
+.criterionInput:hover {
+  border-color: #40a9ff;
+}
+
+.criterionInput:focus {
+  border-color: #40a9ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  outline: none;
+}
+
+.addCriterionButton {
+  padding: 8px 16px;
+  background-color: #4e7ad1;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.addCriterionButton:hover:not(:disabled) {
+  background-color: #3b68c0;
+}
+
+.addCriterionButton:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+}
+
+/* 添加滚动条样式 */
+.guidelinesContent::-webkit-scrollbar {
+  width: 6px;
+}
+
+.guidelinesContent::-webkit-scrollbar-track {
+  background: #f5f7fa;
+  border-radius: 3px;
+}
+
+.guidelinesContent::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.guidelinesContent::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* 恢复按钮样式 */
+.addExampleButton {
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 50% !important;
+  background-color: #4e7ad1 !important;
+  color: white !important;
+  border: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 16px !important;
+  cursor: pointer !important;
+  transition: background-color 0.2s ease !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.addExampleButton:hover {
+  background-color: #3b68c0 !important;
+}
+
+.collapseAllButton {
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 50% !important;
+  background-color: #f5f7fa !important;
+  color: #4e7ad1 !important;
+  border: 1px solid #d1d5db !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 14px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.collapseAllButton:hover {
+  background-color: #eaecef !important;
+  border-color: #c0c4cc !important;
+}
+
+/* 恢复面板样式 */
+.detailsSection .panelHeader,
+.panelHeader {
+  height: 48px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: linear-gradient(to right, var(--bg-tertiary), var(--bg-secondary));
+  position: relative;
+}
+
+.panelHeader::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  height: 20px;
+  width: 4px;
+  background-color: #4f7ad1;
+  border-radius: 0 2px 2px 0;
+}
+
+.detailsSection .panelHeader {
+  justify-content: center;
+}
+
+.detailsSection .panelHeader::after {
+  background-color: #4f7ad1;
+}
+
+.detailsSection:last-child .panelHeader::after {
+  background-color: #7c5fc9;
+}
+
+.panelHeader h2,
+.detailsSection .panelHeader h2 {
+  margin: 0;
+  color: #1e293b;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.detailsSection .detailsContainer {
+  flex: 1;
+  overflow: auto;
+  height: calc(100% - 48px);
+  background-color: white;
+  padding: 12px;
+  border-radius: 0 0 8px 8px;
+}
+
+.detailsSection .detailsContainer > div {
+  height: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #edf2f7;
+  background-color: #fafafa;
+}
+
+.guidelineSection.collapsed, .summarySection.collapsed {
+  flex: 0;
+  height: 42px;
+  min-height: 42px;
+  max-height: 42px;
+}
+
+.guidelineSection.expanded, .summarySection.expanded {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Update the height calculations for expanded sections */
+.guidelineSection.expanded {
+  height: calc(50% - 21px);
+}
+
+/* When one section is collapsed, the other should take full height */
+.guidelineSection.expanded + .summarySection.collapsed,
+.guidelineSection.collapsed + .summarySection.expanded {
+  height: calc(100% - 42px);
+}
+
+/* Update the height calculations for expanded sections */
+.guidelineSection.expanded,
+.detailsSection.expanded:first-child {
+  height: calc(50% - 21px);
+}
+
+/* When one section is collapsed, the other should take full height */
+.guidelineSection.expanded + .summarySection.collapsed,
+.guidelineSection.collapsed + .summarySection.expanded,
+.detailsSection.expanded:first-child + .detailsSection.collapsed,
+.detailsSection.collapsed + .detailsSection.expanded {
+  height: calc(100% - 42px);
+}
+
+/* Remove any margin or gap between collapsed sections */
+.guidelineSection.collapsed + .summarySection.collapsed,
+.detailsSection.collapsed + .detailsSection.collapsed {
+  margin-top: 0;
+}
+
+/* Ensure consistent spacing in panels */
+.splitPanels,
+.splitDetailsContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg-primary);
+  gap: 0;
+}
+
+/* Ensure consistent transitions */
+.guidelineSection,
+.summarySection,
+.detailsSection {
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.resizeHandle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.resizeHandle:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.resizeHandle:hover .resizeIcon {
+  color: #4e7ad1;
+  transform: scale(1.1);
+}
+
+.resizeHandle:active {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.resizeIcon {
+  color: #999;
+  font-size: 18px;
+  user-select: none;
+  transform: rotate(90deg);
+  transition: all 0.2s ease;
+  font-weight: bold;
+  opacity: 0.7;
+}
+
+.centerPanel {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: #fff;
+  border-left: 1px solid #e8e8e8;
+  border-right: 1px solid #e8e8e8;
+}
+
+.resizeHandle:first-child {
+  left: -6px;
+}
+
+.resizeHandle:last-child {
+  right: -6px;
+}
+
+.resetButton {
+  font-size: 0.75rem;
+  padding: 6px 12px;
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  outline: none;
+  user-select: none;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.resetButton:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.resetButton:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.resetButton:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(78, 122, 209, 0.2);
+}
+
+.iterateButton {
+  padding: 6px 16px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin: 8px auto;
+  display: block;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.iterateButton:hover {
+  background-color: var(--primary-color-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.iterateButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.guidelinesPanel .panelHeader::after {
+  display: none;
+}
+
+/* Modal styles - matching the ClusterGroup modal style */
+.modalIntroText {
+  margin-bottom: 16px;
+}
+
+.modalMainText {
+  margin-bottom: 12px;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.modalSubText {
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.modalPreviewContent {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 12px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: #334155;
+  max-height: 200px;
+  overflow-y: auto;
+  font-family: monospace;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 1280px) {
+  .modalPreviewContent {
+    padding: 8px;
+    font-size: 0.75rem;
+    line-height: 1.3;
+  }
+}
+
+@media (max-width: 480px) {
+  .modalPreviewContent {
+    padding: 10px;
+    font-size: 0.85rem;
+    max-height: 150px;
+  }
+}
+
+/* Previous Guideline styles */
+.previousGuidelineItem {
+  margin: 4px 0;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: transparent;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.previousGuidelineItem:first-child {
+  margin-top: 0;
+}
+
+.previousGuidelineItem:last-child {
+  margin-bottom: 0;
+}
+
+.previousGuidelineItem:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 8px rgba(78, 122, 209, 0.15);
+}
+
+.previousGuidelineHeader {
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  cursor: pointer;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+  user-select: none;
+  border: none;
+  min-height: 36px;
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.previousGuidelineHeader:hover {
+  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+  color: var(--primary-color);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.previousGuidelineTitle {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  opacity: 1;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+.previousGuidelineExpandIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  border-radius: 4px;
+  opacity: 0.8;
+  background-color: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.previousGuidelineExpandIcon:hover {
+  color: var(--primary-color);
+  background-color: rgba(78, 122, 209, 0.15);
+  opacity: 1;
+  border-color: var(--primary-color);
+  transform: scale(1.05);
+}
+
+.previousGuidelineChevron {
+  font-size: 12px;
+  transition: transform 0.2s ease;
+}
+
+.previousGuidelineChevron.expanded {
+  transform: rotate(180deg);
+}
+
+.previousGuidelineContent {
+  border: none;
+  margin: 0;
+  padding: 12px 16px;
+  background-color: rgba(248, 250, 252, 0.5);
+  border-top: 1px solid var(--border-color);
+}
+
+.previousGuidelineText {
+  white-space: pre-wrap;
+  padding: 0;
+  margin: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  font-size: 0.85rem;
+  background-color: transparent;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  opacity: 0.95;
+}
+
+.emptyState {
+  text-align: center;
+  color: #64748b;
+  margin-top: 2rem;
+  font-style: italic;
+}
