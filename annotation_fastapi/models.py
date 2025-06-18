@@ -9,9 +9,6 @@ from typing_extensions import TypedDict
 class AnnotationRequest(BaseModel):
     examples: List[str]  # List of input texts to annotate
     annotation_guideline: str  ### New: full text from frontend, used in synthesis
-    guideline_template: Optional[str] = None  ### Now optional
-    guideline_items: Optional[List[str]] = None  ### Now optional
-    uids: Optional[List[str]] = None
     task_id: str  # Added task_id field
 
 

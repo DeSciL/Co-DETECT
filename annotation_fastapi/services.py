@@ -100,20 +100,40 @@ If there is no merge suggestion, write NO MERGE after "Merge Suggestions:"."""
 
 
 # Clustering
-def cluster_texts_with_pca(df, text_column='text_to_annotate', n_clusters=4):
+def cluster_texts_with_pca(df, text_column='text_to_annotate', task_id=None, n_clusters=4):
     logger = logging.getLogger("services")
 
     # Encode text into embeddings
     embeddings = get_embeddings_with_cache(df[text_column].tolist(), "text-embedding-3-large", client)
 
+    pca = None
+    kmeans = None
+    # Load existing models if they are saved
+    if os.path.exists(f'models/pca_model_{task_id}.pkl'):
+        with open(f'models/pca_model_{task_id}.pkl', 'rb') as f:
+            pca = pickle.load(f)
+    if os.path.exists(f'models/kmeans_model_{task_id}.pkl'):
+        with open(f'models/kmeans_model_{task_id}.pkl', 'rb') as f:
+            kmeans = pickle.load(f)
+
     # Cluster in embedding space
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-    labels = kmeans.fit_predict(embeddings)
+    if pca is None or kmeans is None:
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+        labels = kmeans.fit_predict(embeddings)
+        pca = PCA(n_components=2, random_state=42)
+        reduced = pca.fit_transform(embeddings)
+        # Save models if task_id is provided
+        os.makedirs('models', exist_ok=True)
+        with open(f'models/pca_model_{task_id}.pkl', 'wb') as f:
+            pickle.dump(pca, f)
+        with open(f'models/kmeans_model_{task_id}.pkl', 'wb') as f:
+            pickle.dump(kmeans, f)
+    else:
+        labels = kmeans.predict(embeddings)
+        reduced = pca.transform(embeddings)
+
     df["cluster"] = labels
 
-    # Reduce to 2D with PCA
-    pca = PCA(n_components=2, random_state=42)
-    reduced = pca.fit_transform(embeddings)
     df["pca_x"] = reduced[:, 0]
     df["pca_y"] = reduced[:, 1]
 
@@ -129,7 +149,7 @@ async def synthesize_guideline_improvements(df, guideline_text, task_id: str = N
         return {}, []
     # Get text and embeddings
     suggestions = df["guideline_improvement"].tolist()
-    case_descriptions = [s.split('\n')[0] for s in suggestions]
+    case_descriptions = [s.strip(' \n') if '->' not in s else s.split('->')[0].strip() for s in suggestions]
     embeddings = get_embeddings_with_cache(case_descriptions, "text-embedding-3-large", client)
     
     # Determine appropriate number of clusters based on data size
@@ -297,25 +317,48 @@ async def synthesize_guideline_improvements(df, guideline_text, task_id: str = N
 async def process_annotation_json(
     examples: List[str],
     guideline_text: str,     # used to call OpenAI for annotation
-    annotation_guideline: str,          # New parameter: passed into synthesize_guideline_improvements
-    uids: List[str] | None,
     task_id: str,  # Added task_id parameter
 ) -> Dict:
-    
+    # deduplicate examples
+    examples = list(set(examples))
+    # Check if uid2example and example2uid exist
+    if os.path.exists(f'uid2example_{task_id}.json') and os.path.exists(f'example2uid_{task_id}.json'):
+        with open(f'uid2example_{task_id}.json', 'r') as f:
+            uid2example = json.load(f)
+        with open(f'example2uid_{task_id}.json', 'r') as f:
+            example2uid = json.load(f)
+        # If the example is not in the mapping, add it and create a new uid for it
+        updated = False
+        for example in examples:
+            if example not in example2uid:
+                updated = True
+                uid = str(uuid.uuid4())
+                uid2example[uid] = example
+                example2uid[example] = uid
+        if updated:
+            with open(f'uid2example_{task_id}.json', 'w') as f:
+                json.dump(uid2example, f)
+            with open(f'example2uid_{task_id}.json', 'w') as f:
+                json.dump(example2uid, f)
+        uids = [example2uid[example] for example in examples]
+    else:
+        uids = [str(uuid.uuid4()) for _ in range(len(examples))]
+        uid2example = {uid: example for uid, example in zip(uids, examples)}
+        example2uid = {example: uid for uid, example in zip(uids, examples)}
+        # Save the mapping to a json file with task_id
+        with open(f'uid2example_{task_id}.json', 'w') as f:
+            json.dump(uid2example, f)
+        with open(f'example2uid_{task_id}.json', 'w') as f:
+            json.dump(example2uid, f)
+
     # Wrap examples into DataFrame
-    df = pd.DataFrame({"text_to_annotate": examples})
+    df = pd.DataFrame({"text_to_annotate": examples, "uid": uids})
 
     if "text_to_annotate" not in df.columns:
         raise ValueError("Data must contain 'text_to_annotate' column.")
 
-    ### New: UUIDs
-    if uids:
-        df["uid"] = uids
-    else:
-        df["uid"] = [str(uuid.uuid4()) for _ in range(len(df))]
-
     # Cluster text embeddings (labels and PCA)
-    df = cluster_texts_with_pca(df)
+    df = cluster_texts_with_pca(df, task_id=task_id)
 
     # Annotate
     texts_to_annotate = df["text_to_annotate"].tolist()
@@ -353,10 +396,6 @@ async def process_annotation_json(
 async def process_annotation_one_json(
     example: str,
     guideline_text: str,     # used to call OpenAI for annotation
-    annotation_guideline: str,          # New parameter: passed into synthesize_guideline_improvements
-    uid: str | None,
-    pca_model: PCA,
-    kmeans_model: KMeans,
     task_id: str = None,  # Added task_id parameter
 ) -> Dict:
     """
@@ -365,23 +404,41 @@ async def process_annotation_one_json(
     Args:
         example: Single text example to annotate
         guideline_text: Guideline text for annotation
-        annotation_guideline: Guideline text for improvement synthesis
-        uid: Optional unique identifier for the example
-        pca_model: Optional pre-trained PCA model
-        kmeans_model: Optional pre-trained KMeans model
         task_id: Task identifier for file operations
     
     Returns:
         Dict containing the annotation results
     """
-    # Wrap example into DataFrame
-    df = pd.DataFrame({"text_to_annotate": [example]})
+    # Load pre-trained models if they exist
+    pca_model = None
+    kmeans_model = None
+    try:
+        with open(f'models/pca_model_{task_id}.pkl', 'rb') as f:
+            pca_model = pickle.load(f)
+        with open(f'models/kmeans_model_{task_id}.pkl', 'rb') as f:
+            kmeans_model = pickle.load(f)
+    except FileNotFoundError:
+        logging.info(f"No pre-trained models found for task {task_id}, will use default clustering")
 
-    # Set UID
-    if uid:
-        df["uid"] = [uid]
+    # Load uid2example and example2uid
+    with open(f'uid2example_{task_id}.json', 'r') as f:
+        uid2example = json.load(f)
+    with open(f'example2uid_{task_id}.json', 'r') as f:
+        example2uid = json.load(f)
+
+    if example not in example2uid:
+        uid = str(uuid.uuid4())
+        uid2example[uid] = example
+        example2uid[example] = uid
+        with open(f'uid2example_{task_id}.json', 'w') as f:
+            json.dump(uid2example, f)
+        with open(f'example2uid_{task_id}.json', 'w') as f:
+            json.dump(example2uid, f)
     else:
-        df["uid"] = [str(uuid.uuid4())]
+        uid = example2uid[example]
+    
+    # Wrap example into DataFrame
+    df = pd.DataFrame({"text_to_annotate": [example], "uid": [uid]})
 
     # Get embedding for the single example
     embeddings = get_embeddings_with_cache([example], "text-embedding-3-large", client)
@@ -398,7 +455,6 @@ async def process_annotation_one_json(
     # Annotate
     annotated_text = await call_openai_annotation([example], guideline_text)
     df['raw_annotations'] = annotated_text
-
     # Parse response
     data_parsed = parse_json_output(annotated_text[0])
     df["analyses"] = [data_parsed["analysis"]]
@@ -406,6 +462,24 @@ async def process_annotation_one_json(
     df["confidence"] = [data_parsed["confidence"]]
     df["new_edge_case"] = [data_parsed["new_edge_case"]]
     df["guideline_improvement"] = [data_parsed["new_edge_case_rule"]]
+
+    if df["guideline_improvement"][0] is not None and df["new_edge_case"][0] == True:
+        edge_case_description = df["guideline_improvement"][0].strip() if '->' not in df["guideline_improvement"][0] else df["guideline_improvement"][0].split('->')[0].strip()
+        edge_case_rule_embedding = get_embeddings_with_cache([edge_case_description], "text-embedding-3-large", client)
+        # Load cluster PCA model
+        if os.path.exists(f'models/pca_model_{task_id}_cluster.pkl'):
+            with open(f'models/pca_model_{task_id}_cluster.pkl', 'rb') as f:
+                pca_model = pickle.load(f)
+            reduced = pca_model.transform(edge_case_rule_embedding)
+            df["edge_case_pca_x"] = reduced[:, 0]
+            df["edge_case_pca_y"] = reduced[:, 1]
+        else:
+            df["edge_case_pca_x"] = None
+            df["edge_case_pca_y"] = None
+            logger.info(f"No cluster PCA model found for task {task_id}, will not annotate edge case rule")
+    else:
+        df["edge_case_pca_x"] = None
+        df["edge_case_pca_y"] = None
 
     return {
         "annotations": df.to_dict(orient="records"),

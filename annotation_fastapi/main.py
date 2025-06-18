@@ -37,23 +37,13 @@ async def annotate_texts(request: AnnotationRequest):
     if not request.examples:
         raise HTTPException(status_code=400, detail="Empty input.")
     
-    # Check if template and items are provided
-    if request.guideline_template and request.guideline_items:
-        guideline_text = request.guideline_template.replace(
-            "<guidelines_here>", "\n".join(request.guideline_items)
-        )
-    else:
-        # Use annotation_guideline directly if template/items not provided
-        guideline_text = request.annotation_guideline
-
-    if request.uids:
-        assert len(request.examples) == len(request.uids)
+    # Check if task_id is provided
+    if not request.task_id:
+        raise HTTPException(status_code=400, detail="Task ID is required.")
 
     annotated_data = await process_annotation_json(
         request.examples,
-        guideline_text,
         request.annotation_guideline,
-        request.uids,
         request.task_id
     )
 
@@ -73,39 +63,15 @@ async def annotate_one(request: AnnotationRequest):
     if not request.examples or len(request.examples) != 1:
         raise HTTPException(status_code=400, detail="Must provide exactly one example.")
     
-    # Check if template and items are provided
-    if request.guideline_template and request.guideline_items:
-        guideline_text = request.guideline_template.replace(
-            "<guidelines_here>", "\n".join(request.guideline_items)
-        )
-    else:
-        # Use annotation_guideline directly if template/items not provided
-        guideline_text = request.annotation_guideline
-
-    # If uids are provided, use the first one, otherwise generate a new one
-    assert len(request.uids) == 1
-    uid = request.uids[0] if request.uids else None
-
-    # Load pre-trained models if they exist
-    pca_model = None
-    kmeans_model = None
-    try:
-        with open(f'models/pca_model_{request.task_id}.pkl', 'rb') as f:
-            pca_model = pickle.load(f)
-        with open(f'models/kmeans_model_{request.task_id}.pkl', 'rb') as f:
-            kmeans_model = pickle.load(f)
-    except FileNotFoundError:
-        logging.info(f"No pre-trained models found for task {request.task_id}, will use default clustering")
+    # Check if task_id is provided
+    if not request.task_id:
+        raise HTTPException(status_code=400, detail="Task ID is required.")
 
     assert len(request.examples) == 1
 
     annotated_data = await process_annotation_one_json(
         request.examples[0],
-        guideline_text,
         request.annotation_guideline,
-        uid,
-        pca_model,
-        kmeans_model,
         request.task_id
     )
 
