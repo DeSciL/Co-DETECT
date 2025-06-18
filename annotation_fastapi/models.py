@@ -10,7 +10,7 @@ class AnnotationRequest(BaseModel):
     examples: List[str]  # List of input texts to annotate
     annotation_guideline: str  ### New: full text from frontend, used in synthesis
     task_id: str  # Added task_id field
-
+    reannotate_round: Optional[int] = None # The round of reannotation, used for saving the results
 
 class AnnotationResult(TypedDict):
     text_to_annotate: str
@@ -29,6 +29,7 @@ class ClusterRequest(BaseModel):
     annotation_result: List[Dict[str, Any]]  # Dictionary of all annotation results. Should have fields: analyses, annotation, confidence, guideline_improvement
     annotation_guideline: str  # Annotation guideline as a string
     task_id: str  # Added task_id field
+    reannotate_round: Optional[int] = None # The round of reannotation, used for saving the results
 
 
 # Annotation output structure (optional for clarity)

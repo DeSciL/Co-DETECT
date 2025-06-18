@@ -32,7 +32,7 @@ if __name__ == '__main__':
     response = requests.post(url, json=data)
     print("Status Code:", response.status_code)
     print("Response:", response.json())
-    
+
     cluster_url = "http://127.0.0.1:8000/cluster/"
     cluster_input = {
         "annotation_result": pd.read_csv('annotation_result_sample_ghc_rnd.csv').to_dict(orient="records"),
@@ -67,7 +67,8 @@ if __name__ == '__main__':
     reannotation_data = {
         "examples": previous_annotation_result['text_to_annotate'].tolist(),
         "annotation_guideline": new_guideline,
-        "task_id": "ghc_rnd_reannotate",
+        "task_id": "ghc_rnd",
+        "reannotate_round": 1,
         # "uids": previous_annotation_result['uid'].tolist()  # Preserve UIDs
     }
     
@@ -81,7 +82,7 @@ if __name__ == '__main__':
     
     # Load the reannotation results (assuming they are saved as a CSV file)
     # You may need to adjust the filename based on your actual output
-    reannotation_result_file = 'annotation_result_sample_ghc_rnd_reannotate.csv'
+    reannotation_result_file = 'annotation_result_sample_ghc_rnd_1.csv'
     
     # If the file doesn't exist, we'll use the response data directly
     if os.path.exists(reannotation_result_file):
@@ -97,7 +98,8 @@ if __name__ == '__main__':
     second_cluster_input = {
         "annotation_result": reannotation_results,
         "annotation_guideline": new_guideline,
-        "task_id": "ghc_rnd_reannotate",
+        "task_id": "ghc_rnd",
+        "reannotate_round": 1,
     }
     
     second_cluster_response = requests.post(second_cluster_url, json=second_cluster_input)
@@ -117,6 +119,7 @@ if __name__ == '__main__':
         "examples": [test_example],
         "annotation_guideline": GUIDELINE,
         "task_id": "ghc_rnd",
+        "reannotate_round": 0,
     }
 
     annotate_one_response = requests.post(url, json=annotate_one_data)

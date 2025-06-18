@@ -40,13 +40,14 @@ Each edge case is numbered with <Edge Case Numbers> (e.g., 1, 2, 3, ...), and fo
 where <condition> describes the edge case and <action> states how to handle it.
 
 Your task:
-Create a set of high-level categories that cover all the edge cases above.
+Create a set of high-level categories that cover all the edge cases in <edge_cases>.
 
 Requirements:
 1. Every edge case must be assigned to a category—no exceptions.
 2. The categories should summarize the edge cases in a high-level, avoid too many categories.
 3. Iteratively refine your category list: If a category overgeneralizes, split it. If two categories overlap significantly, merge them.
 4. In your response, category descriptions MUST be in the format of "when <summarized condition> -> <generalized action>", starting with "when" and with condition and action connected by "->".
+5. Only use the edge cases in <edge_cases> to create categories. Avoid any edge cases from <annotation_guideline>.
 
 Please reply in the following JSON format:
 ```json
@@ -81,12 +82,12 @@ Each edge case is numbered with <Edge Case Numbers> (e.g., 1, 2, 3, ...), and fo
 where <condition> describes the edge case and <action> states how to handle it.
 
 Your task:
-If there are edge cases that describe VERY similar situations, merge them by grouping the relevant edge case numbers together.
+If there are edge cases in <edge_cases> that describe VERY similar situations, merge them by grouping the relevant edge case numbers together.
 
 Requirement:
 1. Only merge very similar cases.
 2. Iteratively refine your category list: If a category overgeneralizes, split it.
-
+3. Only merge edge cases in <edge_cases>. Don't merge edge cases from <annotation_guideline>.
 
 Please respond in the following format:
 <format>
@@ -100,7 +101,7 @@ If there is no merge suggestion, write NO MERGE after "Merge Suggestions:"."""
 
 
 # Clustering
-def cluster_texts_with_pca(df, text_column='text_to_annotate', task_id=None, n_clusters=4):
+def cluster_texts_with_pca(df, text_column='text_to_annotate', task_id=None, n_clusters=4, round_string=""):
     logger = logging.getLogger("services")
 
     # Encode text into embeddings
@@ -109,11 +110,11 @@ def cluster_texts_with_pca(df, text_column='text_to_annotate', task_id=None, n_c
     pca = None
     kmeans = None
     # Load existing models if they are saved
-    if os.path.exists(f'models/pca_model_{task_id}.pkl'):
-        with open(f'models/pca_model_{task_id}.pkl', 'rb') as f:
+    if os.path.exists(f'models/pca_model_{task_id}{round_string}.pkl'):
+        with open(f'models/pca_model_{task_id}{round_string}.pkl', 'rb') as f:
             pca = pickle.load(f)
-    if os.path.exists(f'models/kmeans_model_{task_id}.pkl'):
-        with open(f'models/kmeans_model_{task_id}.pkl', 'rb') as f:
+    if os.path.exists(f'models/kmeans_model_{task_id}{round_string}.pkl'):
+        with open(f'models/kmeans_model_{task_id}{round_string}.pkl', 'rb') as f:
             kmeans = pickle.load(f)
 
     # Cluster in embedding space
@@ -124,9 +125,9 @@ def cluster_texts_with_pca(df, text_column='text_to_annotate', task_id=None, n_c
         reduced = pca.fit_transform(embeddings)
         # Save models if task_id is provided
         os.makedirs('models', exist_ok=True)
-        with open(f'models/pca_model_{task_id}.pkl', 'wb') as f:
+        with open(f'models/pca_model_{task_id}{round_string}.pkl', 'wb') as f:
             pickle.dump(pca, f)
-        with open(f'models/kmeans_model_{task_id}.pkl', 'wb') as f:
+        with open(f'models/kmeans_model_{task_id}{round_string}.pkl', 'wb') as f:
             pickle.dump(kmeans, f)
     else:
         labels = kmeans.predict(embeddings)
@@ -142,7 +143,7 @@ def cluster_texts_with_pca(df, text_column='text_to_annotate', task_id=None, n_c
     return df
 
 
-async def synthesize_guideline_improvements(df, guideline_text, task_id: str = None):
+async def synthesize_guideline_improvements(df, guideline_text, task_id: str = None, round_string=""):
     # Filter non-empty suggestions
     df = df[df["guideline_improvement"].str.strip().str.upper() != "EMPTY"].copy()
     if df.empty:
@@ -189,15 +190,14 @@ async def synthesize_guideline_improvements(df, guideline_text, task_id: str = N
     # Try to load existing models if task_id is provided
     pca = None
     sc_kmeans = None
-    if task_id:
-        try:
-            with open(f'models/pca_model_{task_id}_cluster.pkl', 'rb') as f:
-                pca = pickle.load(f)
-            with open(f'models/kmeans_model_{task_id}_cluster.pkl', 'rb') as f:
-                sc_kmeans = pickle.load(f)
-            logger.info(f"Loaded existing models for task {task_id}")
-        except FileNotFoundError:
-            logger.info(f"No existing models found for task {task_id}, will create new ones")
+    try:
+        with open(f'models/pca_model_{task_id}_cluster{round_string}.pkl', 'rb') as f:
+            pca = pickle.load(f)
+        with open(f'models/kmeans_model_{task_id}_cluster{round_string}.pkl', 'rb') as f:
+            sc_kmeans = pickle.load(f)
+        logger.info(f"Loaded existing models for task {task_id}")
+    except FileNotFoundError:
+        logger.info(f"No existing models found for task {task_id}, will create new ones")
 
     # If models don't exist or couldn't be loaded, create new ones
     if pca is None or sc_kmeans is None:
@@ -218,13 +218,12 @@ async def synthesize_guideline_improvements(df, guideline_text, task_id: str = N
         df["pca_x"] = reduced[:, 0]
         df["pca_y"] = reduced[:, 1]
 
-        # Save models if task_id is provided
-        if task_id:
-            os.makedirs('models', exist_ok=True)
-            with open(f'models/pca_model_{task_id}_cluster.pkl', 'wb') as f:
-                pickle.dump(pca, f)
-            with open(f'models/kmeans_model_{task_id}_cluster.pkl', 'wb') as f:
-                pickle.dump(sc_kmeans, f)
+        # Save models
+        os.makedirs('models', exist_ok=True)
+        with open(f'models/pca_model_{task_id}_cluster{round_string}.pkl', 'wb') as f:
+            pickle.dump(pca, f)
+        with open(f'models/kmeans_model_{task_id}_cluster{round_string}.pkl', 'wb') as f:
+            pickle.dump(sc_kmeans, f)
     else:
         # Use existing models for prediction
         reduced = pca.transform(embeddings)
@@ -237,13 +236,13 @@ async def synthesize_guideline_improvements(df, guideline_text, task_id: str = N
 
     all_messages = []
     for cluster_id in range(actual_n_clusters):
-        cluster_df = df[df["cluster_id"] == cluster_id]
+        cluster_df = df[df["cluster_id"] == cluster_id].sort_values(by=['uid'])
         suggestions_text = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(cluster_df["guideline_improvement"]))
 
         # Compose prompt
         all_messages.append([{'role': 'user', 'content': AGGREGATION_RPOMPT.format(guideline=guideline_text, edge_case=suggestions_text)}])
 
-    logger.info(f"One example aggregation prompt: {all_messages[0]}")
+    logger.info(f"One example aggregation prompt: {all_messages[0][0]['content']}")
     # Send to DeepSeek-R1
     summaries = await call_openai(all_messages, model='deepseek-reasoner')
     for cluster_id, response in enumerate(summaries):
@@ -304,7 +303,7 @@ async def synthesize_guideline_improvements(df, guideline_text, task_id: str = N
     # Only include fields that exist in the DataFrame
     valid_fields = [f for f in fields_to_include if f in improvement_df.columns]
     if task_id:
-        improvement_df[valid_fields].to_csv(f'clustered_results_{task_id}.csv', encoding='utf-8', index=False)
+        improvement_df[valid_fields].to_csv(f'clustered_results_{task_id}{round_string}.csv', encoding='utf-8', index=False)
     improvement_clusters = improvement_df[valid_fields].to_dict(orient="records")
 
     return {
@@ -318,6 +317,7 @@ async def process_annotation_json(
     examples: List[str],
     guideline_text: str,     # used to call OpenAI for annotation
     task_id: str,  # Added task_id parameter
+    round_string: str = "",
 ) -> Dict:
     # deduplicate examples
     examples = list(set(examples))
@@ -358,7 +358,7 @@ async def process_annotation_json(
         raise ValueError("Data must contain 'text_to_annotate' column.")
 
     # Cluster text embeddings (labels and PCA)
-    df = cluster_texts_with_pca(df, task_id=task_id)
+    df = cluster_texts_with_pca(df, task_id=task_id, round_string=round_string)
 
     # Annotate
     texts_to_annotate = df["text_to_annotate"].tolist()
@@ -387,7 +387,7 @@ async def process_annotation_json(
     df["guideline_improvement"] = all_edge_case_rules
 
     # Save sample result with task_id
-    df.to_csv(f'annotation_result_sample_{task_id}.csv', encoding='utf-8', index=False)
+    df.to_csv(f'annotation_result_sample_{task_id}{round_string}.csv', encoding='utf-8', index=False)
 
     return {
         "annotations": df.to_dict(orient="records"),
@@ -395,8 +395,9 @@ async def process_annotation_json(
 
 async def process_annotation_one_json(
     example: str,
-    guideline_text: str,     # used to call OpenAI for annotation
+    guideline_text: str,  # used to call OpenAI for annotation
     task_id: str = None,  # Added task_id parameter
+    round_string: str = "",
 ) -> Dict:
     """
     Process a single example for annotation using pre-trained PCA and KMeans models.
@@ -413,9 +414,9 @@ async def process_annotation_one_json(
     pca_model = None
     kmeans_model = None
     try:
-        with open(f'models/pca_model_{task_id}.pkl', 'rb') as f:
+        with open(f'models/pca_model_{task_id}{round_string}.pkl', 'rb') as f:
             pca_model = pickle.load(f)
-        with open(f'models/kmeans_model_{task_id}.pkl', 'rb') as f:
+        with open(f'models/kmeans_model_{task_id}{round_string}.pkl', 'rb') as f:
             kmeans_model = pickle.load(f)
     except FileNotFoundError:
         logging.info(f"No pre-trained models found for task {task_id}, will use default clustering")
@@ -467,8 +468,8 @@ async def process_annotation_one_json(
         edge_case_description = df["guideline_improvement"][0].strip() if '->' not in df["guideline_improvement"][0] else df["guideline_improvement"][0].split('->')[0].strip()
         edge_case_rule_embedding = get_embeddings_with_cache([edge_case_description], "text-embedding-3-large", client)
         # Load cluster PCA model
-        if os.path.exists(f'models/pca_model_{task_id}_cluster.pkl'):
-            with open(f'models/pca_model_{task_id}_cluster.pkl', 'rb') as f:
+        if os.path.exists(f'models/pca_model_{task_id}_cluster{round_string}.pkl'):
+            with open(f'models/pca_model_{task_id}_cluster{round_string}.pkl', 'rb') as f:
                 pca_model = pickle.load(f)
             reduced = pca_model.transform(edge_case_rule_embedding)
             df["edge_case_pca_x"] = reduced[:, 0]
