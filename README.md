@@ -1,5 +1,5 @@
 # AutoDETECT
-AutoDETECT: **Auto**matic **D**iscovery of **E**dge cases in **TE**xt **C**lassificaTion
+AutoDETECT: **Auto**matic **D**iscovery of **E**dge cases in **TE**xt **C**lassifica**T**ion
 
 ### Environment Requirements
 
