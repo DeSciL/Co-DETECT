@@ -1,5 +1,5 @@
 # AutoDETECT
-AutoDETECT: Automatic Discovery of Edge Cases in Text ClassificaTion
+AutoDETECT: **Auto**matic **D**iscovery of **E**dge cases in **TE**xt **C**lassificaTion
 
 ### Environment Requirements
 
