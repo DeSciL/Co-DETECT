@@ -1,8 +1,5 @@
-# IDEA
-IDEA: Intelligent Discovery of Edge cases for text clAssification
-
-Other Candidates:
-DETECT: Discovery of Edge Cases in Text ClassificaTion
+# AutoDETECT
+AutoDETECT: **Auto**matic **D**iscovery of **E**dge cases in **TE**xt **C**lassifica**T**ion
 
 ### Environment Requirements
 
