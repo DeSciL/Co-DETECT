@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     cluster_url = "http://127.0.0.1:8000/cluster/"
     cluster_input = {
-        "annotation_result": pd.read_csv('annotation_result_sample_ghc_rnd.csv').to_dict(orient="records"),
+        "annotation_result": pd.read_csv('annotation_result_sample_ghc_rnd_0.csv').to_dict(orient="records"),
         "annotation_guideline": GUIDELINE,
         "task_id": "ghc_rnd",
     }
@@ -52,7 +52,7 @@ if __name__ == '__main__':
     url = "http://127.0.0.1:8000/annotate/"
     
     # Load clustered results
-    clustered_df = pd.read_csv('clustered_results_ghc_rnd.csv')
+    clustered_df = pd.read_csv('clustered_results_ghc_rnd_0.csv')
     
     new_guideline = GUIDELINE + "\n\nEdge Case Handling:\n"
 
@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
     print(new_guideline)
 
-    previous_annotation_result = pd.read_csv('annotation_result_sample_ghc_rnd.csv')
+    previous_annotation_result = pd.read_csv('annotation_result_sample_ghc_rnd_0.csv')
     # Prepare data for reannotation
     reannotation_data = {
         "examples": previous_annotation_result['text_to_annotate'].tolist(),
