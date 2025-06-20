@@ -41,10 +41,7 @@ async def annotate_texts(request: AnnotationRequest):
     if not request.task_id:
         raise HTTPException(status_code=400, detail="Task ID is required.")
     
-    if request.reannotate_round:
-        round_string = f"_{request.reannotate_round}"
-    else:
-        round_string = ""
+    round_string = f"_{request.reannotate_round}"
 
     annotated_data = await process_annotation_json(
         request.examples,
@@ -75,10 +72,7 @@ async def annotate_one(request: AnnotationRequest):
 
     assert len(request.examples) == 1
 
-    if request.reannotate_round:
-        round_string = f"_{request.reannotate_round}"
-    else:
-        round_string = ""
+    round_string = f"_{request.reannotate_round}"
 
     annotated_data = await process_annotation_one_json(
         request.examples[0],
@@ -102,10 +96,7 @@ async def cluster_edge_cases(request: ClusterRequest):
     assert request.annotation_guideline
     guideline = request.annotation_guideline
     df = pd.DataFrame(request.annotation_result)
-    if request.reannotate_round:
-        round_string = f"_{request.reannotate_round}"
-    else:
-        round_string = ""
+    round_string = f"_{request.reannotate_round}"
 
     cluster_results = await synthesize_guideline_improvements(df, guideline, request.task_id, round_string)
 
