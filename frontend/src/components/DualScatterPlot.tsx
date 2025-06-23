@@ -73,6 +73,16 @@ const DualScatterPlot = ({
   onPointHover,
   hoveredPoint: externalHoveredPoint
 }: DualScatterPlotProps) => {
+  // Debug: log data changes
+  useEffect(() => {
+    console.log("DualScatterPlot data changed:", {
+      topPlotDataCount: topPlot.data?.length || 0,
+      bottomPlotDataCount: bottomPlot?.data?.length || 0,
+      topPlotFirstItem: topPlot.data?.[0],
+      bottomPlotFirstItem: bottomPlot?.data?.[0]
+    });
+  }, [topPlot.data, bottomPlot?.data]);
+
   // Create a derived state that tracks if the selected point exists in each dataset
   const [topSelectedPoint, setTopSelectedPoint] = useState<DataPoint | null>(null);
   const [bottomSelectedPoint, setBottomSelectedPoint] = useState<DataPoint | null>(null);

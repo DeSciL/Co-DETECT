@@ -1,5 +1,5 @@
 import { indexedDBService } from './indexedDB';
-import { StoredData, mapBackendDataToDataPoint } from '../types/data';
+import { StoredData, mapBackendDataToDataPoint, parseReclusterResponse } from '../types/data';
 import { API_BASE_URL } from '../config/apiConfig';
 
 // Cache for frequently accessed data
@@ -158,7 +158,7 @@ export class DataManager {
         savedSuggestions: {},
         requestData: {
           examples: [],
-          annotation_guideline: { task: "", labels: [] },
+          annotation_guideline: "",
           uploadMethod: "paste"
         },
         previousAnnotations: [],
@@ -239,36 +239,42 @@ export class DataManager {
   async loadDemoData(): Promise<StoredData> {
     try {
       // Use Promise.all for parallel loading
-      const [annotationResponse, clusterResponse, reannotationResponse] = await Promise.all([
-        fetch('/annotation_response_full.json'),
-        fetch('/cluster_response_full.json'),
-        fetch('/reannotation_response_full.json')
+      const [annotationResponse, clusterResponse, reannotationResponse, reclusterResponse] = await Promise.all([
+        fetch('/annotation_response.json'),
+        fetch('/cluster_response.json'),
+        fetch('/reannotation_response.json'),
+        fetch('/recluster_response.json')
       ]);
 
-      if (!annotationResponse.ok || !clusterResponse.ok || !reannotationResponse.ok) {
+      if (!annotationResponse.ok || !clusterResponse.ok || !reannotationResponse.ok || !reclusterResponse.ok) {
         throw new Error('Failed to load demo data files');
       }
 
-      const [annotationData, clusterData, reannotationData] = await Promise.all([
+      const [annotationData, clusterData, reannotationData, reclusterRawData] = await Promise.all([
         annotationResponse.json(),
         clusterResponse.json(),
-        reannotationResponse.json()
+        reannotationResponse.json(),
+        reclusterResponse.json()
       ]);
 
+      // 使用新的parseReclusterResponse函数处理特殊格式
+      const reclusterData = parseReclusterResponse(reclusterRawData);
+
       const demoData: StoredData = {
-        annotations: annotationData.annotations || [],
+        annotations: Array.isArray(annotationData.annotations) ? 
+          annotationData.annotations.map(mapBackendDataToDataPoint) : [],
         suggestions: clusterData.suggestions || {},
-        improvement_clusters: clusterData.improvement_clusters || [],
+        improvement_clusters: Array.isArray(clusterData.improvement_clusters) ? 
+          clusterData.improvement_clusters.map(mapBackendDataToDataPoint) : [],
         requestData: {
           examples: annotationData.examples || [],
-          annotation_guideline: {
-            task: "Sample task",
-            labels: ["Label 1", "Label 2"]
-          },
+          annotation_guideline: "Sample task",
           uploadMethod: "paste" as const
         },
-        demoReannotationData: reannotationData.annotations || [],
-        demoReclusterData: clusterData.improvement_clusters || [],
+        demoReannotationData: Array.isArray(reannotationData.annotations) ? 
+          reannotationData.annotations.map(mapBackendDataToDataPoint) : [],
+        demoReclusterData: reclusterData.improvement_clusters,
+        demoReclusterSuggestions: reclusterData.suggestions,
         isDemoMode: true,
         savedSuggestions: {},
         previousAnnotations: [],

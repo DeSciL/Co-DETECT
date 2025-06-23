@@ -248,7 +248,30 @@ const PointDetails: React.FC<PointDetailsProps> = ({
     })();
 
     // Calculate confidence differences based on the SAME data points that were edge / others in the previous round
-    const getItemKey = (item: DataPoint) => item.uid ?? item.text_to_annotate;
+    // Improved matching function that tries both uid and text matching
+    const findMatchingItems = (previousItems: DataPoint[], currentData: DataPoint[]) => {
+      const matches: DataPoint[] = [];
+      
+      for (const prevItem of previousItems) {
+        // First try UID matching
+        let match = currentData.find(currItem => 
+          prevItem.uid && currItem.uid && prevItem.uid === currItem.uid
+        );
+        
+        // If UID matching fails, try text matching
+        if (!match) {
+          match = currentData.find(currItem => 
+            prevItem.text_to_annotate === currItem.text_to_annotate
+          );
+        }
+        
+        if (match) {
+          matches.push(match);
+        }
+      }
+      
+      return matches;
+    };
 
     // Confidence change for previous edge cases
     const confidenceDifferenceEdgeCases = (() => {
@@ -257,11 +280,17 @@ const PointDetails: React.FC<PointDetailsProps> = ({
       const prevEdgeCases = previousAnnotations.filter(item => item.new_edge_case === true);
       if (prevEdgeCases.length === 0) return null;
 
-      const prevEdgeKeys = new Set(prevEdgeCases.map(getItemKey));
-
-      // Current annotations for these exact points (may or may not still be marked as edge cases)
-      const currForPrevEdge = (Array.isArray(data) ? data : []).filter(item => prevEdgeKeys.has(getItemKey(item)));
-      if (currForPrevEdge.length === 0) return null;
+      // Find current annotations for these exact points using improved matching
+      const currForPrevEdge = findMatchingItems(prevEdgeCases, Array.isArray(data) ? data : []);
+      if (currForPrevEdge.length === 0) {
+        console.warn("No matching items found for previous edge cases:", {
+          prevEdgeCasesCount: prevEdgeCases.length,
+          currentDataCount: (Array.isArray(data) ? data : []).length,
+          firstPrevEdgeCase: prevEdgeCases[0],
+          firstCurrentItem: (Array.isArray(data) ? data : [])[0]
+        });
+        return null;
+      }
 
       // Helper to extract numeric confidence safely
       const toNum = (conf: number | string | undefined): number => {
@@ -282,6 +311,15 @@ const PointDetails: React.FC<PointDetailsProps> = ({
       })();
 
       if (avgPrev === null || avgCurr === null) return null;
+      
+      console.log("Edge case confidence change calculation:", {
+        prevEdgeCasesCount: prevEdgeCases.length,
+        matchedCurrentCount: currForPrevEdge.length,
+        avgPrev,
+        avgCurr,
+        difference: avgCurr - avgPrev
+      });
+      
       return avgCurr - avgPrev;
     })();
 
@@ -291,9 +329,17 @@ const PointDetails: React.FC<PointDetailsProps> = ({
       const prevOthers = previousAnnotations.filter(item => item.new_edge_case !== true);
       if (prevOthers.length === 0) return null;
 
-      const prevOtherKeys = new Set(prevOthers.map(getItemKey));
-      const currForPrevOthers = (Array.isArray(data) ? data : []).filter(item => prevOtherKeys.has(getItemKey(item)));
-      if (currForPrevOthers.length === 0) return null;
+      // Find current annotations for these exact points using improved matching
+      const currForPrevOthers = findMatchingItems(prevOthers, Array.isArray(data) ? data : []);
+      if (currForPrevOthers.length === 0) {
+        console.warn("No matching items found for previous non-edge cases:", {
+          prevOthersCount: prevOthers.length,
+          currentDataCount: (Array.isArray(data) ? data : []).length,
+          firstPrevOther: prevOthers[0],
+          firstCurrentItem: (Array.isArray(data) ? data : [])[0]
+        });
+        return null;
+      }
 
       const toNum = (conf: number | string | undefined): number => {
         const num = typeof conf === 'string' ? parseFloat(conf) : Number(conf);
@@ -313,6 +359,15 @@ const PointDetails: React.FC<PointDetailsProps> = ({
       })();
 
       if (avgPrev === null || avgCurr === null) return null;
+      
+      console.log("Non-edge case confidence change calculation:", {
+        prevOthersCount: prevOthers.length,
+        matchedCurrentCount: currForPrevOthers.length,
+        avgPrev,
+        avgCurr,
+        difference: avgCurr - avgPrev
+      });
+      
       return avgCurr - avgPrev;
     })();
 

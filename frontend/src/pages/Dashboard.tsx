@@ -16,6 +16,7 @@ import styles from "../styles/Dashboard.module.css";
 import {
   DataPoint,
   AnnotationRequest,
+  ClusterRequest,
   mapBackendDataToDataPoint,
 } from "../types/data";
 import { useDataContext } from "../hooks/useDataContext";
@@ -76,13 +77,22 @@ const Dashboard = () => {
         if (!isMounted) return;
 
         if (savedData) {
+          console.log("Loading initial data from storage:", {
+            annotationsCount: savedData.annotations?.length || 0,
+            improvementClustersCount: savedData.improvement_clusters?.length || 0,
+            isDemoMode: savedData.isDemoMode
+          });
+          
           // Use batch update to prevent multiple re-renders
           batchUpdate({
             annotations: savedData.annotations || [],
             improvementClusters: savedData.improvement_clusters || [],
             suggestions: savedData.suggestions || {},
             savedSuggestions: savedData.savedSuggestions || {},
-            requestBody: savedData.requestData || null,
+            requestBody: savedData.requestData ? {
+              ...savedData.requestData,
+              task_id: savedData.requestData.task_id || "default_task"
+            } : null,
             previousAnnotations: savedData.previousAnnotations || [],
             previousGuidelines: savedData.previousGuidelines || [],
             isDemoMode: savedData.isDemoMode || false,
@@ -109,7 +119,7 @@ const Dashboard = () => {
     return () => {
       isMounted = false;
     };
-  }, [dispatch, batchUpdate]);
+  }, []); // Remove dependencies to prevent reloading after state updates
 
   // Cleanup on unmount
   useEffect(() => {
@@ -171,29 +181,36 @@ const Dashboard = () => {
       let task = "";
       let labels: string[] = [];
 
-      // Parse the current guideline
-      if (typeof currentGuideline === "object") {
-        task = currentGuideline.task;
-        labels = currentGuideline.labels;
-      } else {
-        const lines = currentGuideline.split("\n");
-        task = lines[0].trim();
-        labels = lines
-          .filter((line) => line.trim().startsWith("-"))
-          .map((line) => line.trim().substring(1).trim());
-      }
+      // Parse the current guideline (now always string format)
+      const lines = currentGuideline.split("\n");
+      task = lines[0].trim();
+      labels = lines
+        .filter((line) => line.trim().startsWith("-"))
+        .map((line) => line.trim().substring(1).trim());
 
       // Add saved suggestions to the guideline
       const savedSuggestionsText = Object.entries(savedSuggestions)
-        .map(([, suggestion]) => `- ${suggestion}`)
+        .map(([, suggestion], index) => `${index + 1}. ${suggestion}`)
         .join("\n");
 
-      let combinedGuidelineString = `${task}\n\nLabels:\n${labels
+      // Extract the main task description (first line)
+      const mainTask = task.split('\n')[0];
+      
+      // Filter labels to only include actual labels (typically short ones with numbers or simple descriptions)
+      // Exclude long descriptive criteria
+      const actualLabels = labels.filter(label => 
+        // Keep labels that are short (like "0 (the post contains no hate speech)") 
+        // or don't contain "Does the post" (which indicates they're criteria descriptions)
+        label.length < 100 && !label.includes("Does the post")
+      );
+      
+      // Build the detailed guidelines format for preview
+      let combinedGuidelineString = `${mainTask}\n\nA post contains hate speech if it contains any of the following aspects:\n- Assaults on Human Dignity: Does the post demean or degrade individuals or groups based on race, ethnicity, gender, religion, sexual orientation, or other protected characteristics?\n- Calls for Violence: Does the post incite or encourage physical harm or violence against individuals or groups?\n- Vulgarity and/or Offensive Language: Does the post contain profanity, slurs, or other offensive language that may or may not be directed at individuals or groups?\n\nLabels:\n${actualLabels
         .map((label) => `- ${label}`)
         .join("\n")}`;
 
       if (savedSuggestionsText.trim()) {
-        combinedGuidelineString += `\n\nEdge Case Handling:\n${savedSuggestionsText}\n`;
+        combinedGuidelineString += `\n\nEdge Case Handling:\n${savedSuggestionsText}`;
       }
 
       setIteratePreviewContent(combinedGuidelineString);
@@ -219,6 +236,12 @@ const Dashboard = () => {
         throw new Error("No data available for iteration");
       }
 
+      console.log("Current data before iteration:", {
+        annotationsCount: currentData.annotations?.length || 0,
+        improvementClustersCount: currentData.improvement_clusters?.length || 0,
+        isDemoMode: currentData.isDemoMode
+      });
+
       // Check if we're in demo mode
       if (currentData.isDemoMode && currentData.demoReannotationData) {
         // Use demo data - data is already mapped in validateAndCleanData
@@ -227,6 +250,12 @@ const Dashboard = () => {
           currentData.demoReclusterData || currentData.improvement_clusters;
         const demoSuggestions =
           currentData.demoReclusterSuggestions || currentData.suggestions || {};
+
+        console.log("Demo iteration data:", {
+          mappedAnnotationsCount: mappedAnnotations?.length || 0,
+          mappedImprovementClustersCount: mappedImprovementClusters?.length || 0,
+          demoSuggestionsKeys: Object.keys(demoSuggestions)
+        });
 
         // For demo mode, use the complete guideline with edge case handling
         let demoGuidelineString = "";
@@ -245,6 +274,7 @@ const Dashboard = () => {
           demoGuidelineString,
         ];
 
+        console.log("Before demo data manager update...");
         // Save data using dataManager
         await dataManager.batchUpdate({
           previousAnnotations: currentData.annotations,
@@ -257,6 +287,7 @@ const Dashboard = () => {
           savedSuggestions: {},
         });
 
+        console.log("Before demo state batch update...");
         // Update state using batch update
         batchUpdate({
           annotations: mappedAnnotations,
@@ -267,6 +298,7 @@ const Dashboard = () => {
           previousGuidelines: updatedPreviousGuidelinesDemo,
         });
 
+        console.log("Demo iteration completed successfully");
         message.success(
           "Successfully iterated with demo reannotation and recluster data"
         );
@@ -279,46 +311,58 @@ const Dashboard = () => {
       let task = "";
       let labels: string[] = [];
 
-      // Parse the current guideline
-      if (typeof currentGuideline === "object") {
-        task = currentGuideline.task;
-        labels = currentGuideline.labels;
-      } else {
-        const lines = currentGuideline.split("\n");
-        // First line is the task (no "Task Description:" prefix)
-        task = lines[0].trim();
-        labels = lines
-          .filter((line) => line.trim().startsWith("-"))
-          .map((line) => line.trim().substring(1).trim());
-      }
+      // Parse the current guideline (now always string format)
+      const lines = currentGuideline.split("\n");
+      // First line is the task (no "Task Description:" prefix)
+      task = lines[0].trim();
+      labels = lines
+        .filter((line) => line.trim().startsWith("-"))
+        .map((line) => line.trim().substring(1).trim());
 
       // Add saved suggestions to the guideline only for API requests
       const savedSuggestionsText = Object.entries(savedSuggestions)
-        .map(([, suggestion]) => {
-          return `- ${suggestion}`;
+        .map(([, suggestion], index) => {
+          return `${index + 1}. ${suggestion}`;
         })
         .join("\n");
 
       // Create combined guideline string only for API requests
-      let combinedGuidelineString = `${task}\n\nLabels:\n${labels
+      // Extract the main task description (first line)
+      const mainTask = task.split('\n')[0];
+      
+      // Filter labels to only include actual labels (typically short ones with numbers or simple descriptions)
+      // Exclude long descriptive criteria
+      const actualLabels = labels.filter(label => 
+        // Keep labels that are short (like "0 (the post contains no hate speech)") 
+        // or don't contain "Does the post" (which indicates they're criteria descriptions)
+        label.length < 100 && !label.includes("Does the post")
+      );
+      
+      // Build the detailed guidelines format
+      let combinedGuidelineString = `${mainTask}\n\nA post contains hate speech if it contains any of the following aspects:\n- Assaults on Human Dignity: Does the post demean or degrade individuals or groups based on race, ethnicity, gender, religion, sexual orientation, or other protected characteristics?\n- Calls for Violence: Does the post incite or encourage physical harm or violence against individuals or groups?\n- Vulgarity and/or Offensive Language: Does the post contain profanity, slurs, or other offensive language that may or may not be directed at individuals or groups?\n\nLabels:\n${actualLabels
         .map((label) => `- ${label}`)
         .join("\n")}`;
 
       if (savedSuggestionsText.trim()) {
-        combinedGuidelineString += `\n\nEdge Case Handling:\n${savedSuggestionsText}\n\nIf the case falls into one of the edge case handled above, please annotate with a high confidence.`;
+        combinedGuidelineString += `\n\nEdge Case Handling:\n${savedSuggestionsText}`;
       }
 
+      console.log("API request guidelines:", combinedGuidelineString);
+
       // Prepare new request with combined guideline
-      const uidsToSend = currentData.annotations.map(
-        (annotation) => annotation.uid
-      );
       const taskId = "reannotate_task_" + Date.now();
       const newRequest: AnnotationRequest = {
         examples: currentData.requestData.examples,
         annotation_guideline: combinedGuidelineString,
-        uids: uidsToSend,
         task_id: taskId,
+        reannotate_round: 1,  // This is a re-annotation
       };
+
+      console.log("Making API call to /annotate/ with request:", {
+        examplesCount: newRequest.examples.length,
+        taskId: newRequest.task_id,
+        reannotateRound: newRequest.reannotate_round
+      });
 
       // Make API call to /annotate/
       const annotationResponse = await fetch(`${API_BASE_URL}/annotate/`, {
@@ -334,14 +378,20 @@ const Dashboard = () => {
       }
 
       const annotationData = await annotationResponse.json();
+      console.log("Annotation API response:", {
+        annotationsCount: annotationData.annotations?.length || 0,
+        firstAnnotation: annotationData.annotations?.[0]
+      });
 
       // Make API call to /cluster/
-      const clusterRequestBody = {
+      const clusterRequestBody: ClusterRequest = {
         annotation_result: annotationData.annotations,
         annotation_guideline: combinedGuidelineString,
         task_id: taskId,
+        reannotate_round: 1,  // This is a re-annotation
       };
 
+      console.log("Making API call to /cluster/...");
       const clusterResponse = await fetch(`${API_BASE_URL}/cluster/`, {
         method: "POST",
         headers: {
@@ -355,14 +405,26 @@ const Dashboard = () => {
       }
 
       const clusterData = await clusterResponse.json();
+      console.log("Cluster API response:", {
+        improvementClustersCount: clusterData.improvement_clusters?.length || 0,
+        suggestionsKeys: Object.keys(clusterData.suggestions || {}),
+        firstImprovementCluster: clusterData.improvement_clusters?.[0]
+      });
 
       // Map backend data to frontend format
-      const mappedAnnotations = annotationData.annotations.map(
+      const mappedAnnotations = (annotationData.annotations || []).map(
         mapBackendDataToDataPoint
       );
-      const mappedImprovementClusters = clusterData.improvement_clusters.map(
+      const mappedImprovementClusters = (clusterData.improvement_clusters || []).map(
         mapBackendDataToDataPoint
       );
+
+      console.log("Mapped data:", {
+        mappedAnnotationsCount: mappedAnnotations.length,
+        mappedImprovementClustersCount: mappedImprovementClusters.length,
+        firstMappedAnnotation: mappedAnnotations[0],
+        firstMappedImprovementCluster: mappedImprovementClusters[0]
+      });
 
       // Update previous guidelines list
       const updatedPreviousGuidelines = [
@@ -370,6 +432,7 @@ const Dashboard = () => {
         combinedGuidelineString,
       ];
 
+      console.log("Before data manager update...");
       // Save data using dataManager
       await dataManager.batchUpdate({
         previousAnnotations: currentData.annotations,
@@ -377,21 +440,23 @@ const Dashboard = () => {
         previousSuggestions: currentData.suggestions,
         previousGuidelines: updatedPreviousGuidelines,
         annotations: mappedAnnotations,
-        suggestions: clusterData.suggestions,
+        suggestions: clusterData.suggestions || {},
         improvement_clusters: mappedImprovementClusters,
         savedSuggestions: {},
       });
 
+      console.log("Before state batch update...");
       // Update state using batch update
       batchUpdate({
         annotations: mappedAnnotations,
-        suggestions: clusterData.suggestions,
+        suggestions: clusterData.suggestions || {},
         improvementClusters: mappedImprovementClusters,
         savedSuggestions: {},
         previousAnnotations: currentData.annotations,
         previousGuidelines: updatedPreviousGuidelines,
       });
 
+      console.log("API iteration completed successfully");
       message.success("Successfully iterated annotation guideline");
     } catch (error) {
       console.error("Error during iteration:", error);
@@ -428,9 +493,9 @@ const Dashboard = () => {
 
   // Handler for removing a suggestion
   const handleRemoveSuggestion = useCallback(
-    async (clusterNumber: number) => {
+    async (clusterKey: string) => {
       const newSuggestions = { ...savedSuggestions };
-      delete newSuggestions[clusterNumber];
+      delete newSuggestions[clusterKey];
 
       try {
         // Save to storage using dataManager
@@ -438,6 +503,8 @@ const Dashboard = () => {
 
         // Update state
         dispatch({ type: "SET_SAVED_SUGGESTIONS", payload: newSuggestions });
+        
+        message.success(`Successfully removed edge case handling rule`);
       } catch (error) {
         console.error("Failed to remove suggestion:", error);
         message.error("Failed to remove suggestion");
@@ -445,6 +512,41 @@ const Dashboard = () => {
     },
     [savedSuggestions, dispatch]
   );
+
+  // Handler for saving all suggestions at once
+  const handleSaveAllSuggestions = useCallback(async () => {
+    if (!suggestions || Object.keys(suggestions).length === 0) {
+      message.info("No suggestions available to save");
+      return;
+    }
+
+    try {
+      // Merge current saved suggestions with all available suggestions
+      const newSuggestions = {
+        ...savedSuggestions,
+        ...suggestions,
+      };
+
+      // Save to storage using dataManager
+      await dataManager.saveData({ savedSuggestions: newSuggestions });
+
+      // Update state
+      dispatch({ type: "SET_SAVED_SUGGESTIONS", payload: newSuggestions });
+      
+      const addedCount = Object.keys(suggestions).filter(
+        key => !savedSuggestions[Number(key)]
+      ).length;
+      
+      if (addedCount > 0) {
+        message.success(`Successfully saved ${addedCount} suggestion${addedCount > 1 ? 's' : ''}`);
+      } else {
+        message.info("All suggestions are already saved");
+      }
+    } catch (error) {
+      console.error("Failed to save all suggestions:", error);
+      message.error("Failed to save all suggestions");
+    }
+  }, [suggestions, savedSuggestions, dispatch]);
 
   // Handler for adding a new example
   const handleAddExample = useCallback(
@@ -491,32 +593,18 @@ const Dashboard = () => {
   const handleAddLabel = useCallback(() => {
     if (!newLabel.trim() || !requestBody) return;
 
-    let updatedRequestBody: AnnotationRequest;
+    // Since annotation_guideline is always a string, parse it first
+    const task = getTaskFromGuideline(requestBody.annotation_guideline);
+    const labels = getLabelsFromGuideline(requestBody.annotation_guideline);
 
-    if (typeof requestBody.annotation_guideline === "object") {
-      updatedRequestBody = {
-        ...requestBody,
-        annotation_guideline: {
-          ...requestBody.annotation_guideline,
-          labels: [...requestBody.annotation_guideline.labels, newLabel.trim()],
-        },
-      };
-    } else {
-      // If it's a string, convert it to the object format
-      const lines = requestBody.annotation_guideline.split("\n");
-      const task = lines[0].replace("Task Description:", "").trim();
-      const labels = lines
-        .filter((line) => line.trim().startsWith("-"))
-        .map((line) => line.trim().substring(1).trim());
+    // Create new guideline string with added label
+    const newLabels = [...labels, newLabel.trim()];
+    const newGuidelineString = `${task}\n\nLabels:\n${newLabels.map(l => `- ${l}`).join('\n')}\n`;
 
-      updatedRequestBody = {
-        ...requestBody,
-        annotation_guideline: {
-          task,
-          labels: [...labels, newLabel.trim()],
-        },
-      };
-    }
+    const updatedRequestBody: AnnotationRequest = {
+      ...requestBody,
+      annotation_guideline: newGuidelineString,
+    };
 
     // Save to storage and update state
     try {
@@ -538,53 +626,89 @@ const Dashboard = () => {
 
   // Function to remove a label
   const handleRemoveLabel = (index: number) => {
-    if (requestBody) {
-      let updatedRequestBody: AnnotationRequest;
+    if (!requestBody) return;
 
-      if (typeof requestBody.annotation_guideline === "object") {
-        updatedRequestBody = {
-          ...requestBody,
-          annotation_guideline: {
-            ...requestBody.annotation_guideline,
-            labels: requestBody.annotation_guideline.labels.filter(
-              (_, i) => i !== index
-            ),
-          },
-        };
-      } else {
-        // If it's a string, convert it to the object format
-        const lines = requestBody.annotation_guideline.split("\n");
-        const task = lines[0].replace("Task Description:", "").trim();
-        const labels = lines
-          .filter((line) => line.trim().startsWith("-"))
-          .map((line) => line.trim().substring(1).trim())
-          .filter((_, i) => i !== index);
+    // Since annotation_guideline is always a string, parse it first
+    const task = getTaskFromGuideline(requestBody.annotation_guideline);
+    const labels = getLabelsFromGuideline(requestBody.annotation_guideline)
+      .filter((_, i) => i !== index);
 
-        updatedRequestBody = {
-          ...requestBody,
-          annotation_guideline: {
-            task,
-            labels,
-          },
-        };
-      }
+    // Create new guideline string with removed label
+    const newGuidelineString = `${task}\n\nLabels:\n${labels.map(l => `- ${l}`).join('\n')}\n`;
 
-      // Save to storage and update state
-      try {
-        const updatedData = {
-          examples: updatedRequestBody.examples,
-          annotation_guideline: updatedRequestBody.annotation_guideline,
-          uploadMethod: ((
-            requestBody as AnnotationRequest & { uploadMethod?: string }
-          ).uploadMethod || "paste") as "paste" | "upload",
-        };
-        dataManager.saveData({ requestData: updatedData });
-        dispatch({ type: "SET_REQUEST_BODY", payload: updatedRequestBody });
-      } catch (error) {
-        console.error("Failed to remove label:", error);
-        message.error("Failed to remove label");
-      }
+    const updatedRequestBody: AnnotationRequest = {
+      ...requestBody,
+      annotation_guideline: newGuidelineString,
+    };
+
+    // Save to storage and update state
+    try {
+      const updatedData = {
+        examples: updatedRequestBody.examples,
+        annotation_guideline: updatedRequestBody.annotation_guideline,
+        uploadMethod: ((
+          requestBody as AnnotationRequest & { uploadMethod?: string }
+        ).uploadMethod || "paste") as "paste" | "upload",
+      };
+      dataManager.saveData({ requestData: updatedData });
+      dispatch({ type: "SET_REQUEST_BODY", payload: updatedRequestBody });
+    } catch (error) {
+      console.error("Failed to remove label:", error);
+      message.error("Failed to remove label");
     }
+  };
+
+  // Function to update task description
+  const handleUpdateTask = useCallback((newTask: string) => {
+    if (!requestBody) return;
+
+    // Since annotation_guideline is always a string, parse it first
+    const labels = getLabelsFromGuideline(requestBody.annotation_guideline);
+
+    // Create new guideline string with updated task
+    const newGuidelineString = `${newTask}\n\nLabels:\n${labels.map(l => `- ${l}`).join('\n')}\n`;
+
+    const updatedRequestBody: AnnotationRequest = {
+      ...requestBody,
+      annotation_guideline: newGuidelineString,
+    };
+
+    // Save to storage and update state
+    try {
+      const updatedData = {
+        examples: updatedRequestBody.examples,
+        annotation_guideline: updatedRequestBody.annotation_guideline,
+        uploadMethod: ((
+          requestBody as AnnotationRequest & { uploadMethod?: string }
+        ).uploadMethod || "paste") as "paste" | "upload",
+      };
+      dataManager.saveData({ requestData: updatedData });
+      dispatch({ type: "SET_REQUEST_BODY", payload: updatedRequestBody });
+    } catch (error) {
+      console.error("Failed to update task:", error);
+      message.error("Failed to update task");
+    }
+  }, [requestBody, dispatch]);
+
+  // Helper function to parse task from annotation_guideline
+  const getTaskFromGuideline = (guideline: string): string => {
+    // Split by "Labels:" and take everything before it as task description
+    const parts = guideline.split(/\nLabels:\n/);
+    return parts[0]?.trim() || "";
+  };
+
+  // Helper function to parse labels from annotation_guideline
+  const getLabelsFromGuideline = (guideline: string): string[] => {
+    // Split by "Labels:" and only parse lines after it
+    const parts = guideline.split(/\nLabels:\n/);
+    if (parts.length < 2) return [];
+    
+    const labelsSection = parts[1];
+    return labelsSection
+      .split("\n")
+      .filter((line) => line.trim().startsWith("-"))
+      .map((line) => line.trim().substring(1).trim())
+      .filter((label) => label.length > 0);
   };
 
   // Function to toggle previous guideline expansion
@@ -688,7 +812,7 @@ const Dashboard = () => {
               </p>
               <p className={styles.modalSubText}>
                 If you want to make changes, please cancel and modify the
-                "Annotation Guideline" and "Edge Case Handling" sections in the
+                "Current Guidelines" and "Edge Case Handling" sections in the
                 dashboard.
               </p>
             </div>
@@ -756,7 +880,7 @@ const Dashboard = () => {
                           onClick={() => togglePreviousGuideline(idx)}
                         >
                           <span className={styles.previousGuidelineTitle}>
-                            Version {idx}
+                            Round {idx + 1}
                           </span>
                           <div className={styles.previousGuidelineExpandIcon}>
                             <DownOutlined
@@ -816,67 +940,20 @@ const Dashboard = () => {
                       className={styles.taskInput}
                       value={
                         requestBody?.annotation_guideline
-                          ? typeof requestBody.annotation_guideline === "object"
-                            ? requestBody.annotation_guideline.task || ""
-                            : requestBody.annotation_guideline
-                                .split("\n")[1]
-                                ?.trim() || ""
+                          ? getTaskFromGuideline(requestBody.annotation_guideline)
                           : ""
                       }
                       onChange={(e) => {
-                        if (requestBody) {
-                          if (
-                            typeof requestBody.annotation_guideline === "object"
-                          ) {
-                            const updatedRequestBody = {
-                              ...requestBody,
-                              annotation_guideline: {
-                                ...requestBody.annotation_guideline,
-                                task: e.target.value,
-                              },
-                            };
-
-                            // Save to storage and update state
-                            try {
-                              const updatedData = {
-                                examples: updatedRequestBody.examples,
-                                annotation_guideline:
-                                  updatedRequestBody.annotation_guideline,
-                                uploadMethod: ((
-                                  requestBody as AnnotationRequest & {
-                                    uploadMethod?: string;
-                                  }
-                                ).uploadMethod || "paste") as
-                                  | "paste"
-                                  | "upload",
-                              };
-                              dataManager.saveData({
-                                requestData: updatedData,
-                              });
-                              dispatch({
-                                type: "SET_REQUEST_BODY",
-                                payload: updatedRequestBody,
-                              });
-                            } catch (error) {
-                              console.error("Failed to update task:", error);
-                              message.error("Failed to update task");
-                            }
-                          }
-                        }
+                        handleUpdateTask(e.target.value);
                       }}
                     />
 
                     <h3 className={styles.guidelineHeader}>Labels</h3>
                     <div className={styles.criteriaList}>
                       {(requestBody?.annotation_guideline
-                        ? typeof requestBody.annotation_guideline === "object"
-                          ? requestBody.annotation_guideline.labels || []
-                          : requestBody.annotation_guideline
-                              .split("\n")
-                              .filter((line) => line.trim().startsWith("-"))
-                              .map((line) => line.trim().substring(1).trim())
+                        ? getLabelsFromGuideline(requestBody.annotation_guideline)
                         : []
-                      ).map((label, index) => (
+                      ).map((label: string, index: number) => (
                         <div key={index} className={styles.criterionItem}>
                           <span>{label}</span>
                           <button
@@ -1143,6 +1220,17 @@ const Dashboard = () => {
               )}
               <h2>Suggested Edge Cases</h2>
               <div className={styles.headerActions}>
+                <button
+                  className={styles.resetButton}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSaveAllSuggestions();
+                  }}
+                  aria-label="Save all suggestions"
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  Add All
+                </button>
                 <button
                   className={styles.resetButton}
                   onClick={(e) => {

@@ -3,8 +3,8 @@ import { Tooltip } from 'antd';
 import styles from "../styles/ClusterSummary.module.css";
 
 interface ClusterSummaryProps {
-  savedSuggestions: Record<number, string>;
-  onRemoveSuggestion?: (clusterNumber: number) => void;
+  savedSuggestions: Record<string, string>;
+  onRemoveSuggestion?: (clusterKey: string) => void;
 }
 
 const ClusterSummary: React.FC<ClusterSummaryProps> = ({
@@ -28,10 +28,10 @@ const ClusterSummary: React.FC<ClusterSummaryProps> = ({
     );
   }
 
-  const handleRemove = (clusterNum: number, e: React.MouseEvent) => {
+  const handleRemove = (clusterKey: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent event bubbling
     if (onRemoveSuggestion) {
-      onRemoveSuggestion(clusterNum);
+      onRemoveSuggestion(clusterKey);
     }
   };
 
@@ -39,7 +39,9 @@ const ClusterSummary: React.FC<ClusterSummaryProps> = ({
     <div className={styles.container}>
       <div className={styles.summaryList}>
         {Object.entries(savedSuggestions).map(([clusterNum, suggestion]) => {
-          const numericCluster = parseInt(clusterNum);
+          // Extract numeric part from cluster key (e.g., "edge_case_0" -> 0)
+          const numericMatch = clusterNum.match(/\d+/);
+          const numericCluster = numericMatch ? parseInt(numericMatch[0]) : 0;
           
           return (
             <div
@@ -59,7 +61,7 @@ const ClusterSummary: React.FC<ClusterSummaryProps> = ({
                   >
                     <button
                       className={styles.removeButton}
-                      onClick={(e) => handleRemove(numericCluster, e)}
+                      onClick={(e) => handleRemove(clusterNum, e)}
                       aria-label="Remove from summary"
                     >
                       ×

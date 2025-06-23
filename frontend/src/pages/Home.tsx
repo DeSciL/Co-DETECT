@@ -17,7 +17,7 @@ import {
   InfoCircleOutlined
 } from '@ant-design/icons';
 import styles from "../styles/Home.module.css";
-import { AnnotationRequest, DataPoint, mapBackendDataToDataPoint } from "../types/data";
+import { AnnotationRequest, DataPoint, mapBackendDataToDataPoint, parseReclusterResponse } from "../types/data";
 import { API_BASE_URL } from "../config/apiConfig";
 import { dataManager } from "../services/dataManager";
 import TourGuide from "../components/TourGuide";
@@ -37,6 +37,7 @@ const Home = () => {
   const [parseError, setParseError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [taskId, setTaskId] = useState("grc_rnd");
   const navigate = useNavigate();
   
   // Get annotation_guideline from task and labels
@@ -77,13 +78,25 @@ const Home = () => {
         if (savedData) {
           // Use stored task and labels directly
           if (savedData.requestData) {
-            if (savedData.requestData.annotation_guideline && typeof savedData.requestData.annotation_guideline === "object") {
-              if (savedData.requestData.annotation_guideline.task) {
-                setTask(savedData.requestData.annotation_guideline.task);
+            // Since annotation_guideline is always a string, parse it to extract task and labels
+            if (savedData.requestData.annotation_guideline && typeof savedData.requestData.annotation_guideline === "string") {
+              // Split by "Labels:" and take everything before it as task description
+              const parts = savedData.requestData.annotation_guideline.split(/\nLabels:\n/);
+              const task = parts[0]?.trim() || "";
+              
+              // Parse labels only from the section after "Labels:"
+              let labels: string[] = [];
+              if (parts.length >= 2) {
+                const labelsSection = parts[1];
+                labels = labelsSection
+                  .split("\n")
+                  .filter((line) => line.trim().startsWith("-"))
+                  .map((line) => line.trim().substring(1).trim())
+                  .filter((label) => label.length > 0);
               }
-              if (savedData.requestData.annotation_guideline.labels) {
-                setLabels(savedData.requestData.annotation_guideline.labels);
-              }
+              
+              if (task) setTask(task);
+              if (labels.length > 0) setLabels(labels);
             }
             
             // If there were examples, join them back for the textarea
@@ -206,6 +219,14 @@ const Home = () => {
       const file = fileArray[0];
       const fileExtension = file.name.split('.').pop()?.toLowerCase();
       
+      // Auto-suggest task_id from filename if not already set
+      if (!taskId.trim()) {
+        const rawName = file.name;
+        const dotIndex = rawName.lastIndexOf(".");
+        const suggestedTaskId = dotIndex > 0 ? rawName.substring(0, dotIndex) : rawName;
+        setTaskId(suggestedTaskId);
+      }
+      
       if (fileExtension === "csv") {
         processCsvFile(file);
       } else {
@@ -230,27 +251,15 @@ const Home = () => {
     // Combine task and labels into annotation_guideline
     const annotation_guideline = getAnnotationGuideline();
     
-    /*
-     * Build task_id so that uploading the same CSV file produces exactly the
-     * same identifier that the backend test script (test_main.py) expects.
-     * For file uploads we strip the extension (e.g. "ghc_rnd.csv" -> "ghc_rnd").
-     * For pasted text we keep the existing timestamp-based fallback.
-     */
-    let taskId = `annotation_task_${Date.now()}`;
-    if (uploadMethod === "upload" && files.length > 0) {
-      const rawName = files[0].name;
-      const dotIndex = rawName.lastIndexOf(".");
-      taskId = dotIndex > 0 ? rawName.substring(0, dotIndex) : rawName;
-    }
+    // Use user-provided task_id instead of generating one
+    const finalTaskId = taskId.trim() || `annotation_task_${Date.now()}`; // Fallback if empty
 
-    // Prepare the request body for annotation with additional fields so that
-    // it matches test_main.py byte-for-byte (important for cache hits).
+    // Prepare the request body for annotation
     const annotationRequestBody: AnnotationRequest = {
       examples,
       annotation_guideline,
-      guideline_template: "",
-      guideline_items: [],
-      task_id: taskId,
+      task_id: finalTaskId,
+      reannotate_round: 0,  // Initial annotation
     };
     
     // Set loading state
@@ -307,7 +316,8 @@ const Home = () => {
       const clusterRequestBody = {
         annotation_result: annotationData.annotations,
         annotation_guideline,
-        task_id: taskId,
+        task_id: finalTaskId,
+        reannotate_round: 0,  // Initial annotation
       };
       
       const clusterResponse = await fetch(`${API_BASE_URL}/cluster/`, {
@@ -389,10 +399,7 @@ const Home = () => {
         improvement_clusters: mappedImprovementClusters,
         requestData: {
           examples,
-          annotation_guideline: {
-            task,
-            labels
-          },
+          annotation_guideline,  // Use the string format
           uploadMethod
         }
       };
@@ -415,12 +422,18 @@ const Home = () => {
     setIsLoading(true);
 
     try {
+      // Clear existing data first to force reload from JSON files
+      await dataManager.clearData();
+      
+      // Add timestamp to prevent caching
+      const timestamp = Date.now();
+      
       // Load annotation, cluster, reannotation, and recluster response files
       const [annotationResponse, clusterResponse, reannotationResponse, reclusterResponse] = await Promise.all([
-        fetch('/annotation_response.json'),
-        fetch('/cluster_response.json'),
-        fetch('/reannotation_response.json'),
-        fetch('/recluster_response.json')
+        fetch(`/annotation_response.json?t=${timestamp}`),
+        fetch(`/cluster_response.json?t=${timestamp}`),
+        fetch(`/reannotation_response.json?t=${timestamp}`),
+        fetch(`/recluster_response.json?t=${timestamp}`)
       ]);
 
       if (!annotationResponse.ok || !clusterResponse.ok || !reannotationResponse.ok || !reclusterResponse.ok) {
@@ -439,17 +452,21 @@ const Home = () => {
       const mappedAnnotations = annotationData.annotations.map(mapBackendDataToDataPoint);
       const mappedImprovementClusters = clusterData.improvement_clusters.map((item: unknown) => mapBackendDataToDataPoint(item as DataPoint));
       const mappedReannotationData = reannotationData.annotations.map(mapBackendDataToDataPoint);
-      const mappedReclusterData = reclusterData.improvement_clusters ? reclusterData.improvement_clusters.map((item: unknown) => mapBackendDataToDataPoint(item as DataPoint)) : [];
+      
+      // Handle recluster data structure using the new parseReclusterResponse function
+      const parsedReclusterData = parseReclusterResponse(reclusterData);
+      const mappedReclusterData = parsedReclusterData.improvement_clusters || [];
+      const reclusterSuggestions = parsedReclusterData.suggestions || {};
       
       console.log("Demo mappedAnnotations (first 5):", mappedAnnotations.slice(0, 5));
+      console.log("Demo reclusterSuggestions:", reclusterSuggestions);
+      console.log("Demo mappedReclusterData (first 3):", mappedReclusterData.slice(0, 3));
       
-      // Create a mock request data with separate task and labels
+      // Create a mock request data with guideline as string
+      const demoGuidelineString = `${task}\n\nLabels:\n${labels.map(label => `- ${label}`).join('\n')}`;
       const requestData = {
         examples: annotationData.examples || [],
-        annotation_guideline: {
-          task: task,
-          labels: labels
-        },
+        annotation_guideline: demoGuidelineString,
         uploadMethod: "paste" as const
       };
       
@@ -462,7 +479,7 @@ const Home = () => {
         // Store demo reannotation data for iterate functionality
         demoReannotationData: mappedReannotationData,
         demoReclusterData: mappedReclusterData, // Use actual recluster data for demo
-        demoReclusterSuggestions: reclusterData.suggestions, // Store recluster suggestions
+        demoReclusterSuggestions: reclusterSuggestions, // Store recluster suggestions
         isDemoMode: true
       };
       
@@ -572,6 +589,22 @@ const Home = () => {
                   onChange={(e) => setTask(e.target.value)}
                   disabled={isLoading}
                   autoSize={{ minRows: 3, maxRows: 6 }}
+                />
+              </div>
+              
+              <div className={styles.inputSection} data-tour="task-id-section">
+                <div className={styles.sectionTitleWithTooltip}>
+                  <Title level={5} className={styles.sectionTitle}>Task ID</Title>
+                  <Tooltip title="Enter a unique task ID for your annotation task. This enables backend caching for faster processing. Use meaningful names like 'hate_speech_detection' or 'sentiment_analysis_tweets'.">
+                    <InfoCircleOutlined className={styles.infoIcon} />
+                  </Tooltip>
+                </div>
+                <Input
+                  className={styles.taskIdInput}
+                  placeholder="e.g., hate_speech_detection, sentiment_analysis_tweets, product_review_classification"
+                  value={taskId}
+                  onChange={(e) => setTaskId(e.target.value)}
+                  disabled={isLoading}
                 />
               </div>
               

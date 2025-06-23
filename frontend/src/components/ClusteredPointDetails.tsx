@@ -12,7 +12,7 @@ interface ClusteredPointDetailsProps {
   onPointSelect: (point: DataPoint) => void;
   suggestions?: Record<string, string>;
   onSaveSuggestion?: (clusterNumber: number, suggestion: string) => void;
-  savedSuggestions?: Record<number, string>;
+  savedSuggestions?: Record<string, string>;
   previousAnnotations?: DataPoint[];
 }
 

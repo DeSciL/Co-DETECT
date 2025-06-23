@@ -9,7 +9,7 @@ type DataAction =
   | { type: 'SET_PREVIOUS_ANNOTATIONS'; payload: DataPoint[] }
   | { type: 'SET_IMPROVEMENT_CLUSTERS'; payload: DataPoint[] }
   | { type: 'SET_SUGGESTIONS'; payload: Record<string, string> }
-  | { type: 'SET_SAVED_SUGGESTIONS'; payload: Record<number, string> }
+  | { type: 'SET_SAVED_SUGGESTIONS'; payload: Record<string, string> }
   | { type: 'SET_PREVIOUS_GUIDELINES'; payload: string[] }
   | { type: 'SET_REQUEST_BODY'; payload: AnnotationRequest | null }
   | { type: 'SET_SELECTED_POINT'; payload: DataPoint | null }
@@ -23,7 +23,7 @@ interface DataState {
   previousAnnotations: DataPoint[];
   improvementClusters: DataPoint[];
   suggestions: Record<string, string>;
-  savedSuggestions: Record<number, string>;
+  savedSuggestions: Record<string, string>;
   previousGuidelines: string[];
   requestBody: AnnotationRequest | null;
   selectedPoint: DataPoint | null;
@@ -100,7 +100,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [state, dispatch] = useReducer(dataReducer, initialState);
 
   const batchUpdate = useCallback((updates: Partial<DataState>) => {
+    console.log("batchUpdate called with:", {
+      updateKeys: Object.keys(updates),
+      annotationsCount: updates.annotations?.length || 'unchanged',
+      improvementClustersCount: updates.improvementClusters?.length || 'unchanged',
+      suggestionsKeys: updates.suggestions ? Object.keys(updates.suggestions) : 'unchanged'
+    });
+    console.log("Current state before update:", {
+      annotationsCount: state.annotations.length,
+      improvementClustersCount: state.improvementClusters.length,
+      suggestionsKeys: Object.keys(state.suggestions)
+    });
+    
     dispatch({ type: 'BATCH_UPDATE', payload: updates });
+    
+    // Use setTimeout to log state after update (since state updates are async)
+    setTimeout(() => {
+      console.log("State after batchUpdate should be applied");
+    }, 100);
   }, []);
 
   const resetState = useCallback(() => {
