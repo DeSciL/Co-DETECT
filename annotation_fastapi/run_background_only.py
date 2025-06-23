@@ -27,6 +27,7 @@ if __name__ == '__main__':
         "examples": df_to_annotate['text_to_annotate'].tolist(),
         "annotation_guideline": GUIDELINE,
         "task_id": "ghc_rnd",
+        "reannotate_round": 0,
     }
     
     response = requests.post(url, json=data)
@@ -38,6 +39,7 @@ if __name__ == '__main__':
         "annotation_result": pd.read_csv('annotation_result_sample_ghc_rnd_0.csv').to_dict(orient="records"),
         "annotation_guideline": GUIDELINE,
         "task_id": "ghc_rnd",
+        "reannotate_round": 0,
     }
     cluster_response = requests.post(cluster_url, json=cluster_input)
     print("Status Code:", cluster_response.status_code)

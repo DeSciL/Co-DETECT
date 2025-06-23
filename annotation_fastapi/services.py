@@ -236,7 +236,7 @@ async def synthesize_guideline_improvements(df, guideline_text, task_id: str = N
 
     all_messages = []
     for cluster_id in range(actual_n_clusters):
-        cluster_df = df[df["cluster_id"] == cluster_id].sort_values(by=['uid'])
+        cluster_df = df[df["cluster_id"] == cluster_id].copy().sort_values(by=['uid'])
         suggestions_text = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(cluster_df["guideline_improvement"]))
 
         # Compose prompt
@@ -319,8 +319,14 @@ async def process_annotation_json(
     task_id: str,  # Added task_id parameter
     round_string: str = "",
 ) -> Dict:
-    # deduplicate examples
-    examples = list(set(examples))
+    # # deduplicate examples
+    # seen = set()
+    # deduped = []
+    # for x in examples:
+    #     if x not in seen:
+    #         deduped.append(x)
+    #         seen.add(x)
+    # examples = deduped
     # Check if uid2example and example2uid exist
     if os.path.exists(f'uid2example_{task_id}.json') and os.path.exists(f'example2uid_{task_id}.json'):
         with open(f'uid2example_{task_id}.json', 'r') as f:
