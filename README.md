@@ -86,7 +86,7 @@ Open [**Local Host**](http://localhost:5173)
   - **Suggested Edge Cases**: Click + to save edge case handling suggestions, then iterate (iterate buttom at top right corner)
   ![Save Suggestions](illustration_figures/suggested_edge_cases.png)
   ![Save Suggestions](illustration_figures/suggestions_saved.png)
-  - **Annotate New Examples**: Click `Annotate New` to annotate additional individual samples
+  - **Annotate New Examples**: Click `Annotate New` to annotate additional samples with current guideline on the left panel. Reannotating existing samples with 🔁
   ![Annotate New](illustration_figures/add_new.png)
   ![Reannotate Existing](illustration_figures/suggested_edge_cases_reannotate.png)
 
