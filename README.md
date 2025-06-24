@@ -6,9 +6,6 @@ AutoDETECT: **Auto**matic **D**iscovery of **E**dge cases in **TE**xt **C**lassi
 - Node.js: v22.11.0
 - Python: 3.11.10
 
-
-## Quick Start for Graders
-
 ### Choose Your Testing Mode
 
 **🚀 Demo Mode (Fastest - 2 minutes)**
@@ -21,6 +18,12 @@ AutoDETECT: **Auto**matic **D**iscovery of **E**dge cases in **TE**xt **C**lassi
 - Test actual data processing pipeline
 - Recommended for thorough evaluation
 
+### 0. API Key Configuration
+
+#### For Graders (Recommended)
+- **Demo Mode**: No setup needed, no API key required
+- **Backend Mode**: Requires valid OpenAI / DeepSeek API keys
+
 ### 1. Launch Backend (Only for Backend Mode)
 ```bash
 cd annotation_fastapi
@@ -31,7 +34,7 @@ uvicorn main:app
 ### 2. Run Analysis Using Our Frontend
 After launching the backend locally, you can run the analysis using our [Deployed Frontend](https://autodetect.vercel.app/)
 
-### 3. (Alternative) Launch Frontend on Your Own
+### 2a. (Alternative) Launch Frontend on Your Own
 
 #### a. Install nvm
 If you haven't installed nvm yet, run:
@@ -60,7 +63,7 @@ Open http://localhost:5173
 2. **Labels**: Add the categories you want to classify (minimum 2 labels)
 3. **Text Input**: Paste text directly or upload CSV file
 4. **Submit**: Click "Submit" to start analysis (or "Load Demo Data" for quick demo)
-
+---
 #### Dashboard Page - Analyze Results
 - **Left Panel**: 
   - **Previous Guidelines**: Review earlier guideline versions
@@ -101,13 +104,7 @@ Open http://localhost:5173
 3. **Iterate**: Click "Iterate" button to re-annotate using improved guidelines
 4. **Compare Results**: View before/after annotation changes
 
-
-### 6. API Key Configuration
-
-#### For Graders (Recommended)
-- **Demo Mode**: No setup needed, no API key required
-- **Backend Mode**: Requires valid OpenAI / DeepSeek API keys
-
+---
 #### For Developers
 To use live API calls in Backend Mode, create `.env` file in `/annotation_fastapi/`:
 ```
