@@ -54,7 +54,7 @@ nvm use          # Switches to the project's Node.js version
 npm install
 npm run dev
 ```
-Open http://localhost:5173
+Open [**Local Host**](http://localhost:5173)
 
 ### 3. Interface Overview
 
