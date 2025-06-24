@@ -23,9 +23,12 @@ AutoDETECT: **Auto**matic **D**iscovery of **E**dge cases in **TE**xt **C**lassi
 
 ### 0. API Key Configuration
 
-#### For Graders (Recommended)
-- **Demo Mode**: No setup needed, no API key required
-- **Backend Mode**: Requires valid OpenAI / DeepSeek API keys
+To use live API calls in Backend Mode, create `.env` file in `/annotation_fastapi/`:
+```
+OPENAI_API_KEY=your_openai_api_key_here
+DEEPSEEK_API_KEY=your_deepseek_api_key_here
+```
+**Note**: Backend Mode always makes real OpenAI and DeepSeek API calls, so ensure your API keys are set.
 
 ### 1. Launch Backend (Only for Backend Mode)
 ```bash
@@ -117,12 +120,4 @@ Open [**Local Host**](http://localhost:5173)
 3. **Iterate**: Click "Iterate" button to re-annotate using improved guidelines
 4. **Compare Results**: View before/after annotation changes
 
----
-#### For Developers
-To use live API calls in Backend Mode, create `.env` file in `/annotation_fastapi/`:
-```
-OPENAI_API_KEY=your_openai_api_key_here
-DEEPSEEK_API_KEY=your_deepseek_api_key_here
-```
-**Note**: Backend Mode always makes real OpenAI and DeepSeek API calls, so ensure your API keys are set.
 
