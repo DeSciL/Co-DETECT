@@ -28,7 +28,11 @@ pip install -r requirements.txt
 uvicorn main:app
 ```
 
-### 2. Start Frontend (Required for Both Modes)
+### 2. Run Analysis Using Our Frontend
+After launching the backend locally, you can run the analysis using our Frontend: 
+[Deployed Frontend](https://autodetect.vercel.app/)
+
+### 3. Start Frontend (Required for Both Modes)
 
 #### a. Install nvm
 If you haven't installed nvm yet, run:
