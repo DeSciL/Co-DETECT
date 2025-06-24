@@ -21,7 +21,7 @@ AutoDETECT: **Auto**matic **D**iscovery of **E**dge cases in **TE**xt **C**lassi
 - Test actual data processing pipeline
 - Recommended for thorough evaluation
 
-### 1. Start Backend (Only for Backend Mode)
+### 1. Launch Backend (Only for Backend Mode)
 ```bash
 cd annotation_fastapi
 pip install -r requirements.txt
@@ -31,7 +31,7 @@ uvicorn main:app
 ### 2. Run Analysis Using Our Frontend
 After launching the backend locally, you can run the analysis using our [Deployed Frontend](https://autodetect.vercel.app/)
 
-### 3. Start Frontend (Required for Both Modes)
+### 3. (Alternative) Launch Frontend on Your Own
 
 #### a. Install nvm
 If you haven't installed nvm yet, run:
@@ -64,7 +64,7 @@ Open http://localhost:5173
 #### Dashboard Page - Analyze Results
 - **Left Panel**: 
   - **Previous Guidelines**: Review earlier guideline versions
-  - **Annotation Guidelines**: Edit task description and labels
+  - **Current Guidelines**: Edit task description and labels
   - **Edge Case Handling**: Saved improvement rules
 - **Center Panel**: **Dual Scatter Plots**
   - **Upper plot**: All annotated examples ↔ **Right: All Examples**
@@ -72,6 +72,7 @@ Open http://localhost:5173
 - **Right Panel**:
   - **All Examples**: Click points or examples to see details
   - **Suggested Edge Cases**: Click + to save suggestions, then iterate
+  - **Annotate New Examples**: Click `Add New` to annotate additional individual samples
 
 ### 4. Two Testing Modes
 
