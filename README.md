@@ -29,6 +29,25 @@ uvicorn main:app
 ```
 
 ### 2. Start Frontend (Required for Both Modes)
+
+#### a. Install nvm
+If you haven't installed nvm yet, run:
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+```
+Then restart your terminal or run:
+```bash
+source ~/.nvm/nvm.sh
+```
+
+#### b. Install the Required Node.js Version
+```bash
+nvm install 22.11.0
+nvm use 22.11.0
+nvm alias default 22.11.0
+```
+
+#### c. Now Start Frontend
 ```bash
 cd frontend
 # Optional: nvm use
