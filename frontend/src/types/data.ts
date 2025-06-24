@@ -12,6 +12,7 @@ export interface DataPoint {
   confidence: number;
   new_edge_case: boolean | string;
   guideline_improvement: string;
+  isReannotated?: boolean; // Flag for newly reannotated items
 }
 
 // Unified user input data interface
@@ -56,6 +57,7 @@ export interface StoredData {
     annotation_guideline: string;  // Updated to only support string format
     uploadMethod: "paste" | "upload";
     task_id?: string;  // Optional task_id field
+    reannotate_round?: number;  // Add reannotate_round field to persist round state
   };
   savedSuggestions?: Record<string, string>;
   timestamp?: string;
@@ -202,4 +204,20 @@ export function parseReclusterResponse(data: unknown): ReclusterResponse {
     suggestions: {},
     improvement_clusters: []
   };
+}
+
+// Interface for the app state managed by useDataContext
+export interface AppState {
+  annotations: DataPoint[];
+  previousAnnotations: DataPoint[];
+  improvementClusters: DataPoint[];
+  suggestions: Record<string, string>;
+  savedSuggestions: Record<string, string>;
+  previousGuidelines: string[];
+  requestBody: AnnotationRequest | null;
+  selectedPoint: DataPoint | null;
+  isLoading: boolean;
+  error: string | null;
+  isDemoMode: boolean;
+  currentRound: number; // Add currentRound field to track annotation rounds
 }

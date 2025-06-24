@@ -1,5 +1,6 @@
 {
-  "name": "tool",
+  "name": "autodetect",
+  "description": "AutoDETECT: Automatic Discovery of Edge cases in TExt ClassificaTion",
   "private": true,
   "version": "0.0.0",
   "type": "module",

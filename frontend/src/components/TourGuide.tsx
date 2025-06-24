@@ -16,8 +16,8 @@ const TourGuide: React.FC<TourGuideProps> = ({ page, onFinish }) => {
       target: 'body',
       content: (
         <div>
-          <h2>Welcome to the LLM-Assisted Annotation & Analysis Tool!</h2>
-          <p>Let's start with a quick tour!</p>
+          <h2>Welcome to AutoDETECT!</h2>
+          <p>AutoDETECT: Automatic Discovery of Edge cases in TExt ClassificaTion. Let's start with a quick tour!</p>
         </div>
       ),
       placement: 'center',
@@ -71,7 +71,7 @@ const TourGuide: React.FC<TourGuideProps> = ({ page, onFinish }) => {
       target: 'body',
       content: (
         <div>
-          <h2>Welcome to the Analysis Dashboard!</h2>
+          <h2>Welcome to AutoDETECT Dashboard!</h2>
           <p>Here you can view annotation results and intelligent analysis. Let me introduce the various functional modules!</p>
         </div>
       ),

@@ -9,6 +9,7 @@ import os
 import datetime
 import pickle
 import logging
+import math
 
 app = FastAPI()
 
@@ -24,6 +25,24 @@ app.add_middleware(
 # Ensure results directory exists
 os.makedirs("annotation_results", exist_ok=True)
 os.makedirs("models", exist_ok=True)
+
+def clean_json_data(data):
+    """
+    递归清理数据中的无效浮点数值，将NaN和Infinity替换为None
+    """
+    if isinstance(data, dict):
+        return {k: clean_json_data(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [clean_json_data(item) for item in data]
+    elif isinstance(data, float):
+        if math.isnan(data):
+            return None
+        elif math.isinf(data):
+            return None
+        else:
+            return data
+    else:
+        return data
 
 # This endpoint replaces the old file-based version
 # Accepts a JSON request with:
@@ -54,10 +73,13 @@ async def annotate_texts(request: AnnotationRequest):
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"annotation_results/annotation_{request.task_id}{round_string}_{timestamp}.json"
     
-    with open(filename, "w", encoding="utf-8") as f:
-        json.dump(annotated_data, f, ensure_ascii=False, indent=2)
+    # Clean data before saving and returning
+    cleaned_data = clean_json_data(annotated_data)
     
-    return JSONResponse(content=annotated_data)
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(cleaned_data, f, ensure_ascii=False, indent=2)
+    
+    return JSONResponse(content=cleaned_data)
 
 
 @app.post("/annotate_one/")
@@ -85,10 +107,13 @@ async def annotate_one(request: AnnotationRequest):
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"annotation_results/annotation_{request.task_id}{round_string}_{timestamp}.json"
     
-    with open(filename, "w", encoding="utf-8") as f:
-        json.dump(annotated_data, f, ensure_ascii=False, indent=2)
+    # Clean data before saving and returning
+    cleaned_data = clean_json_data(annotated_data)
     
-    return JSONResponse(content=annotated_data)
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(cleaned_data, f, ensure_ascii=False, indent=2)
+    
+    return JSONResponse(content=cleaned_data)
 
 
 @app.post("/cluster/")
@@ -107,4 +132,7 @@ async def cluster_edge_cases(request: ClusterRequest):
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(cluster_results, f, ensure_ascii=False, indent=2)
 
-    return JSONResponse(content=cluster_results)
+    # Clean data before returning JSON response
+    cleaned_results = clean_json_data(cluster_results)
+    
+    return JSONResponse(content=cleaned_results)

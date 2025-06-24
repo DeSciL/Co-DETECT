@@ -14,6 +14,7 @@ interface ClusteredPointDetailsProps {
   onSaveSuggestion?: (clusterNumber: number, suggestion: string) => void;
   savedSuggestions?: Record<string, string>;
   previousAnnotations?: DataPoint[];
+  onReannotate?: (point: DataPoint) => void;
 }
 
 const ClusteredPointDetails: React.FC<ClusteredPointDetailsProps> = ({
@@ -24,6 +25,7 @@ const ClusteredPointDetails: React.FC<ClusteredPointDetailsProps> = ({
   onSaveSuggestion,
   savedSuggestions = {},
   previousAnnotations,
+  onReannotate,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [collapseTimestamp, setCollapseTimestamp] = useState<number>(0);
@@ -140,6 +142,7 @@ const ClusteredPointDetails: React.FC<ClusteredPointDetailsProps> = ({
                     isSaved={isSaved}
                     forceCollapsed={collapseTimestamp}
                     previousAnnotations={previousAnnotations}
+                    onReannotate={onReannotate}
                   />
                 </div>
               );
@@ -195,6 +198,7 @@ const ClusteredPointDetails: React.FC<ClusteredPointDetailsProps> = ({
                   isSaved={isSaved}
                   forceCollapsed={collapseTimestamp}
                   previousAnnotations={previousAnnotations}
+                  onReannotate={onReannotate}
                 />
               </div>
             );

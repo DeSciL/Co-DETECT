@@ -458,7 +458,7 @@
 .emptyState {
   text-align: center;
   color: #64748b;
-  font-size: 0.8rem;
+  font-style: italic;
   padding: 20px 16px;
 }
 

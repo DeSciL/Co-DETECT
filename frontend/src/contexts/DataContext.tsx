@@ -100,24 +100,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [state, dispatch] = useReducer(dataReducer, initialState);
 
   const batchUpdate = useCallback((updates: Partial<DataState>) => {
-    console.log("batchUpdate called with:", {
-      updateKeys: Object.keys(updates),
-      annotationsCount: updates.annotations?.length || 'unchanged',
-      improvementClustersCount: updates.improvementClusters?.length || 'unchanged',
-      suggestionsKeys: updates.suggestions ? Object.keys(updates.suggestions) : 'unchanged'
-    });
-    console.log("Current state before update:", {
-      annotationsCount: state.annotations.length,
-      improvementClustersCount: state.improvementClusters.length,
-      suggestionsKeys: Object.keys(state.suggestions)
-    });
-    
     dispatch({ type: 'BATCH_UPDATE', payload: updates });
-    
-    // Use setTimeout to log state after update (since state updates are async)
-    setTimeout(() => {
-      console.log("State after batchUpdate should be applied");
-    }, 100);
   }, []);
 
   const resetState = useCallback(() => {

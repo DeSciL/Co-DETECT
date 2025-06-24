@@ -109,6 +109,32 @@
   border: 1px solid var(--border-color, #d1d5db);
 }
 
+.newBadge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background-color: #10b981;
+  color: white;
+  border: 1px solid #059669;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.edgeBadge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background-color: #fbbf24;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .headerConfidence {
   color: var(--text-secondary);
   flex-shrink: 0;
@@ -150,6 +176,38 @@
 
 .clusterBadge, .confidenceBadge {
   display: none;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.reannotateButton {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: none;
+  opacity: 0.8;
+}
+
+.reannotateButton:hover {
+  background-color: var(--primary-color-hover);
+  transform: scale(1.1);
+  opacity: 1;
+}
+
+.reannotateIcon {
+  color: white;
+  font-size: 10px;
 }
 
 .expandIcon {

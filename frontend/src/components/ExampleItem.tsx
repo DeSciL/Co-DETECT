@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import styles from "../styles/ExampleItem.module.css";
 import { DataPoint } from "../types/data";
-import { DownOutlined } from '@ant-design/icons';
+import { DownOutlined, PlusOutlined } from '@ant-design/icons';
 
 interface ExampleItemProps {
   point: DataPoint;
@@ -9,9 +9,10 @@ interface ExampleItemProps {
   onClick: () => void;
   previousAnnotations?: DataPoint[];
   hideGuidelineImprovement?: boolean;
+  onReannotate?: (point: DataPoint) => void;
 }
 
-const ExampleItem: React.FC<ExampleItemProps> = ({ point, isSelected, onClick, previousAnnotations, hideGuidelineImprovement }) => {
+const ExampleItem: React.FC<ExampleItemProps> = ({ point, isSelected, onClick, previousAnnotations, hideGuidelineImprovement, onReannotate }) => {
   // Control content expansion/collapse state
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -24,6 +25,14 @@ const ExampleItem: React.FC<ExampleItemProps> = ({ point, isSelected, onClick, p
   const handleExpandClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent event bubbling to parent element
     setIsExpanded(!isExpanded); // Toggle expand/collapse state
+  };
+
+  // Handle click on reannotate button
+  const handleReannotateClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling to parent element
+    if (onReannotate) {
+      onReannotate(point);
+    }
   };
 
   // Get confidence change indicator
@@ -125,6 +134,12 @@ const ExampleItem: React.FC<ExampleItemProps> = ({ point, isSelected, onClick, p
         <div className={styles.headerLeft}>
           <div className={styles.headerInfo}>
             {getAnnotationLabel()}
+            {point.isReannotated && (
+              <span className={styles.newBadge}>NEW</span>
+            )}
+            {point.new_edge_case && (
+              <span className={styles.edgeBadge}>Edge</span>
+            )}
             <span className={styles.headerConfidence}>
               {typeof point.confidence === 'string' ? parseFloat(point.confidence) : point.confidence}%
               {getConfidenceChange()}
@@ -132,14 +147,25 @@ const ExampleItem: React.FC<ExampleItemProps> = ({ point, isSelected, onClick, p
             <span className={styles.headerPreview}>{getTextPreview()}</span>
           </div>
         </div>
-        <div 
-          className={styles.expandIcon}
-          onClick={handleExpandClick}
-          title={isExpanded ? "Collapse" : "Expand"}
-        >
-          <DownOutlined 
-            className={`${styles.chevron} ${isExpanded ? styles.expanded : ""}`}
-          />
+        <div className={styles.headerActions}>
+          {onReannotate && (
+            <div 
+              className={styles.reannotateButton}
+              onClick={handleReannotateClick}
+              title="Re-annotate this example"
+            >
+              <PlusOutlined className={styles.reannotateIcon} />
+            </div>
+          )}
+          <div 
+            className={styles.expandIcon}
+            onClick={handleExpandClick}
+            title={isExpanded ? "Collapse" : "Expand"}
+          >
+            <DownOutlined 
+              className={`${styles.chevron} ${isExpanded ? styles.expanded : ""}`}
+            />
+          </div>
         </div>
       </div>
 

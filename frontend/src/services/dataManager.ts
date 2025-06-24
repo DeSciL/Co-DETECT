@@ -1,6 +1,7 @@
 import { indexedDBService } from './indexedDB';
 import { StoredData, mapBackendDataToDataPoint, parseReclusterResponse } from '../types/data';
 import { API_BASE_URL } from '../config/apiConfig';
+import { getApiErrorMessage } from '../utils/errorHandling';
 
 // Cache for frequently accessed data
 class DataCache {
@@ -223,7 +224,9 @@ export class DataManager {
         console.error(`API call attempt ${attempt + 1} failed:`, error);
         
         if (attempt === retries - 1) {
-          throw error;
+          // On final attempt, throw a more informative error using centralized error handling
+          const errorMessage = getApiErrorMessage(error);
+          throw new Error(errorMessage);
         }
         
         // Exponential backoff

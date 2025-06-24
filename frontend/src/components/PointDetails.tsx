@@ -12,9 +12,10 @@ interface PointDetailsProps {
   onPointSelect: (point: DataPoint) => void;
   onAddExample?: (example: Partial<DataPoint>) => void;
   previousAnnotations?: DataPoint[];
+  onReannotate?: (point: DataPoint) => void;
 }
 
-type SortOption = "confidence" | "confidence_increase" | "confidence_decrease" | "class" | "alphabetical";
+type SortOption = "new" | "confidence" | "confidence_increase" | "confidence_decrease" | "class" | "alphabetical";
 type SortDirection = "asc" | "desc";
 
 const PointDetails: React.FC<PointDetailsProps> = ({ 
@@ -22,16 +23,19 @@ const PointDetails: React.FC<PointDetailsProps> = ({
   data, 
   onPointSelect, 
   onAddExample,
-  previousAnnotations 
+  previousAnnotations,
+  onReannotate
 }) => {
+
+
   const selectedItemRef = useRef<HTMLDivElement>(null);
-  const [sortOption, setSortOption] = useState<SortOption>("confidence");
+  const [sortOption, setSortOption] = useState<SortOption>("new");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [showAddModal, setShowAddModal] = useState(false);
   const [newExample, setNewExample] = useState<string>("");
   
   // Lazy loading states
-  const [itemsToShow, setItemsToShow] = useState(100); // Start with 100 items
+  const [itemsToShow, setItemsToShow] = useState(50); // Start with 50 items
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   
   // Search/filter state
@@ -43,22 +47,43 @@ const PointDetails: React.FC<PointDetailsProps> = ({
       return new Map<string, number>();
     }
 
-    const prevMap = new Map<string, number>();
+    // Create a map for both UID and text matching
+    const prevMapByUid = new Map<string, number>();
+    const prevMapByText = new Map<string, number>();
+    
     previousAnnotations.forEach(prev => {
+      const prevConf = typeof prev.confidence === 'string' ? parseFloat(prev.confidence) : (prev.confidence || 0);
+      
       if (prev.uid) {
-        const prevConf = typeof prev.confidence === 'string' ? parseFloat(prev.confidence) : (prev.confidence || 0);
-        prevMap.set(prev.uid, prevConf);
+        prevMapByUid.set(prev.uid, prevConf);
+      }
+      if (prev.text_to_annotate) {
+        prevMapByText.set(prev.text_to_annotate, prevConf);
       }
     });
 
     const changesMap = new Map<string, number>();
     data.forEach(item => {
-      if (item.uid && prevMap.has(item.uid)) {
-        const currentConf = typeof item.confidence === 'string' ? parseFloat(item.confidence) : (item.confidence || 0);
-        const prevConf = prevMap.get(item.uid)!;
-        changesMap.set(item.uid, currentConf - prevConf);
+      const currentConf = typeof item.confidence === 'string' ? parseFloat(item.confidence) : (item.confidence || 0);
+      let prevConf: number | undefined;
+      
+      // Try UID matching first
+      if (item.uid && prevMapByUid.has(item.uid)) {
+        prevConf = prevMapByUid.get(item.uid);
+      }
+      // If UID matching fails, try text matching
+      else if (item.text_to_annotate && prevMapByText.has(item.text_to_annotate)) {
+        prevConf = prevMapByText.get(item.text_to_annotate);
+      }
+      
+      // Store the change if we found a match
+      if (prevConf !== undefined && item.uid) {
+        const change = currentConf - prevConf;
+        changesMap.set(item.uid, change);
       }
     });
+
+
 
     return changesMap;
   }, [data, previousAnnotations]);
@@ -84,7 +109,20 @@ const PointDetails: React.FC<PointDetailsProps> = ({
     return [...filteredData].sort((a, b) => {
       let compareResult = 0;
       
+
+      
       switch (sortOption) {
+        case "new": {
+          // Prioritize re-annotated items first, then by confidence
+          const aIsNew = a.isReannotated || false;
+          const bIsNew = b.isReannotated || false;
+          if (aIsNew !== bIsNew) {
+            return aIsNew ? -1 : 1;
+          }
+          // If both are new or both are old, sort by confidence as secondary
+          compareResult = (b.confidence || 0) - (a.confidence || 0);
+          break;
+        }
         case "confidence":
           compareResult = (a.confidence || 0) - (b.confidence || 0);
           break;
@@ -106,11 +144,13 @@ const PointDetails: React.FC<PointDetailsProps> = ({
           if (aIsTarget !== bIsTarget) {
             return aIsTarget ? -1 : 1;
           } else if (aIsTarget && bIsTarget) {
-            // Both are in the target category, sort by change value
+            // Both are in the target category, sort by change value considering direction
             if (sortOption === "confidence_increase") {
-              compareResult = aChange - bChange;
+              // For gained: sort by positive change values
+              compareResult = aChange - bChange; // This will be reversed by sortDirection logic below
             } else {
-              compareResult = bChange - aChange;
+              // For lost: sort by negative change values (more negative = larger loss)
+              compareResult = bChange - aChange; // This will be reversed by sortDirection logic below
             }
           } else {
             // Both are in 'other' category, sort by absolute change value
@@ -158,6 +198,11 @@ const PointDetails: React.FC<PointDetailsProps> = ({
     return currentData;
   }, [sortedAndFilteredData, itemsToShow, point]);
 
+  // Check if there are any re-annotated items
+  const hasReannotatedItems = useMemo(() => {
+    return Array.isArray(data) && data.some(item => item.isReannotated === true);
+  }, [data]);
+
   // Lazy loading function
   const loadMoreItems = useCallback(async () => {
     setIsLoadingMore(true);
@@ -165,14 +210,22 @@ const PointDetails: React.FC<PointDetailsProps> = ({
     // Simulate network delay for smooth UX
     await new Promise(resolve => setTimeout(resolve, 300));
     
-    setItemsToShow(prev => Math.min(prev + 100, sortedAndFilteredData.length));
+    setItemsToShow(prev => Math.min(prev + 50, sortedAndFilteredData.length));
     setIsLoadingMore(false);
   }, [sortedAndFilteredData.length]);
 
   // Reset items to show when sort or search changes
   useEffect(() => {
-    setItemsToShow(100);
+    setItemsToShow(50);
   }, [sortOption, sortDirection, searchTerm]);
+
+  // Reset sort option if "new" is selected but no re-annotated items exist
+  useEffect(() => {
+    if (!hasReannotatedItems && sortOption === "new") {
+      setSortOption("confidence");
+      setSortDirection("asc");
+    }
+  }, [hasReannotatedItems, sortOption]);
 
   // Memoized callback for sort change
   const handleSortChange = useCallback((newSortOption: SortOption) => {
@@ -187,7 +240,7 @@ const PointDetails: React.FC<PointDetailsProps> = ({
     if (listElement) {
       listElement.scrollTop = 0;
     }
-  }, [sortOption, sortDirection]);
+  }, [sortOption, sortDirection, previousAnnotations]);
 
   // Memoized search handler
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -283,12 +336,6 @@ const PointDetails: React.FC<PointDetailsProps> = ({
       // Find current annotations for these exact points using improved matching
       const currForPrevEdge = findMatchingItems(prevEdgeCases, Array.isArray(data) ? data : []);
       if (currForPrevEdge.length === 0) {
-        console.warn("No matching items found for previous edge cases:", {
-          prevEdgeCasesCount: prevEdgeCases.length,
-          currentDataCount: (Array.isArray(data) ? data : []).length,
-          firstPrevEdgeCase: prevEdgeCases[0],
-          firstCurrentItem: (Array.isArray(data) ? data : [])[0]
-        });
         return null;
       }
 
@@ -312,13 +359,7 @@ const PointDetails: React.FC<PointDetailsProps> = ({
 
       if (avgPrev === null || avgCurr === null) return null;
       
-      console.log("Edge case confidence change calculation:", {
-        prevEdgeCasesCount: prevEdgeCases.length,
-        matchedCurrentCount: currForPrevEdge.length,
-        avgPrev,
-        avgCurr,
-        difference: avgCurr - avgPrev
-      });
+
       
       return avgCurr - avgPrev;
     })();
@@ -332,12 +373,6 @@ const PointDetails: React.FC<PointDetailsProps> = ({
       // Find current annotations for these exact points using improved matching
       const currForPrevOthers = findMatchingItems(prevOthers, Array.isArray(data) ? data : []);
       if (currForPrevOthers.length === 0) {
-        console.warn("No matching items found for previous non-edge cases:", {
-          prevOthersCount: prevOthers.length,
-          currentDataCount: (Array.isArray(data) ? data : []).length,
-          firstPrevOther: prevOthers[0],
-          firstCurrentItem: (Array.isArray(data) ? data : [])[0]
-        });
         return null;
       }
 
@@ -360,13 +395,7 @@ const PointDetails: React.FC<PointDetailsProps> = ({
 
       if (avgPrev === null || avgCurr === null) return null;
       
-      console.log("Non-edge case confidence change calculation:", {
-        prevOthersCount: prevOthers.length,
-        matchedCurrentCount: currForPrevOthers.length,
-        avgPrev,
-        avgCurr,
-        difference: avgCurr - avgPrev
-      });
+
       
       return avgCurr - avgPrev;
     })();
@@ -469,6 +498,14 @@ const PointDetails: React.FC<PointDetailsProps> = ({
         <div className={styles.sortSection}>
           <span className={styles.sortLabel}>Sort by:</span>
           <div className={styles.sortOptions}>
+            {hasReannotatedItems && (
+              <button 
+                className={`${styles.sortButton} ${sortOption === "new" ? styles.active : ""}`}
+                onClick={() => handleSortChange("new")}
+              >
+                New {getSortIndicator("new")}
+              </button>
+            )}
             <button 
               className={`${styles.sortButton} ${sortOption === "confidence" ? styles.active : ""}`}
               onClick={() => handleSortChange("confidence")}
@@ -578,6 +615,7 @@ const PointDetails: React.FC<PointDetailsProps> = ({
                 isSelected={isSelected}
                 onClick={() => onPointSelect(item)}
                 previousAnnotations={previousAnnotations}
+                onReannotate={onReannotate}
               />
             </div>
           );
@@ -597,13 +635,13 @@ const PointDetails: React.FC<PointDetailsProps> = ({
               loading={isLoadingMore}
               className={styles.loadMoreButton}
             >
-              {isLoadingMore ? 'Loading...' : `Load More (+${Math.min(100, sortedAndFilteredData.length - itemsToShow)} items)`}
+              {isLoadingMore ? 'Loading...' : `Load More (+${Math.min(50, sortedAndFilteredData.length - itemsToShow)} items)`}
             </Button>
           </div>
         )}
         
         {/* No more items message */}
-        {sortedAndFilteredData.length > 0 && sortedAndFilteredData.length <= itemsToShow && itemsToShow > 100 && (
+        {sortedAndFilteredData.length > 0 && sortedAndFilteredData.length <= itemsToShow && itemsToShow > 50 && (
           <div className={styles.allLoadedContainer}>
             <p className={styles.allLoadedText}>
               ✓ All {sortedAndFilteredData.length} items loaded

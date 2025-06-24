@@ -5,6 +5,7 @@ import {
   CaretRightOutlined,
   CaretDownOutlined,
   DownOutlined,
+  PlusOutlined,
 } from "@ant-design/icons";
 import DualScatterPlot from "../components/DualScatterPlot";
 import PointDetails from "../components/PointDetails";
@@ -22,6 +23,7 @@ import {
 import { useDataContext } from "../hooks/useDataContext";
 import { dataManager } from "../services/dataManager";
 import { API_BASE_URL } from "../config/apiConfig";
+import { getApiErrorMessage } from "../utils/errorHandling";
 
 const Dashboard = () => {
   const { state, dispatch, batchUpdate } = useDataContext();
@@ -58,8 +60,32 @@ const Dashboard = () => {
   const rightPanelRef = useRef<HTMLDivElement>(null);
   const [showIterateModal, setShowIterateModal] = useState(false);
   const [iteratePreviewContent, setIteratePreviewContent] = useState("");
+  const [showAddExampleModal, setShowAddExampleModal] = useState(false);
+  const [newExampleText, setNewExampleText] = useState("");
+  const [isReannotation, setIsReannotation] = useState(false);
 
   const navigate = useNavigate();
+
+  // Debug function to check current state - accessible from browser console
+  (window as unknown as { debugRoundState: () => void }).debugRoundState = () => {
+    console.log("🔍 [ROUND STATE DEBUG] Current state inspection:", {
+      requestBody,
+      reannotateRound: requestBody?.reannotate_round,
+      isDemoMode,
+      annotations: annotations?.length,
+      improvementClusters: improvementClusters?.length,
+      timestamp: new Date().toISOString(),
+    });
+    
+    // Also check saved data
+    dataManager.loadData().then(savedData => {
+      console.log("🔍 [ROUND STATE DEBUG] Saved data inspection:", {
+        savedRequestData: savedData?.requestData,
+        savedReannotateRound: savedData?.requestData?.reannotate_round,
+        isDemoMode: savedData?.isDemoMode,
+      });
+    });
+  };
 
   // Load data when component mounts
   useEffect(() => {
@@ -77,22 +103,34 @@ const Dashboard = () => {
         if (!isMounted) return;
 
         if (savedData) {
-          console.log("Loading initial data from storage:", {
-            annotationsCount: savedData.annotations?.length || 0,
-            improvementClustersCount: savedData.improvement_clusters?.length || 0,
-            isDemoMode: savedData.isDemoMode
+          console.log("🚀 [LOAD DATA DEBUG] Loading saved data:", {
+            savedData,
+            requestData: savedData.requestData,
+            reannotateRound: savedData.requestData?.reannotate_round,
           });
+
           
           // Use batch update to prevent multiple re-renders
+          // Create requestBody from savedData.requestData
+          let requestBodyToSet: AnnotationRequest | null = null;
+          if (savedData.requestData) {
+            requestBodyToSet = {
+              examples: savedData.requestData.examples || [],
+              annotation_guideline: savedData.requestData.annotation_guideline || "",
+              task_id: savedData.requestData.task_id || `task_${Date.now()}`, // Generate fallback task_id
+              reannotate_round: savedData.requestData.reannotate_round || 0, // Use saved round value
+            };
+            
+            console.log("🚀 [LOAD DATA DEBUG] Created requestBodyToSet:", requestBodyToSet);
+          }
+
+          
           batchUpdate({
             annotations: savedData.annotations || [],
             improvementClusters: savedData.improvement_clusters || [],
             suggestions: savedData.suggestions || {},
             savedSuggestions: savedData.savedSuggestions || {},
-            requestBody: savedData.requestData ? {
-              ...savedData.requestData,
-              task_id: savedData.requestData.task_id || "default_task"
-            } : null,
+            requestBody: requestBodyToSet,
             previousAnnotations: savedData.previousAnnotations || [],
             previousGuidelines: savedData.previousGuidelines || [],
             isDemoMode: savedData.isDemoMode || false,
@@ -119,7 +157,7 @@ const Dashboard = () => {
     return () => {
       isMounted = false;
     };
-  }, []); // Remove dependencies to prevent reloading after state updates
+  }, [batchUpdate, dispatch]); // Add missing dependencies
 
   // Cleanup on unmount
   useEffect(() => {
@@ -145,11 +183,24 @@ const Dashboard = () => {
         payload: isSamePoint ? null : point,
       });
 
+      // Check if the selected point is from improvementClusters data
+      // If so, automatically expand the Suggested Edge Cases section
+      if (!isSamePoint && point && improvementClusters && improvementClusters.length > 0) {
+        const isFromImprovementClusters = improvementClusters.some(item => 
+          (item.uid && point.uid && item.uid === point.uid) ||
+          item.text_to_annotate === point.text_to_annotate
+        );
+        
+        if (isFromImprovementClusters && !isImprovementsExpanded) {
+          setIsImprovementsExpanded(true);
+        }
+      }
+
       setTimeout(() => {
         setSelectionsEnabled(true);
       }, 100);
     },
-    [selectionsEnabled, selectedPoint, dispatch]
+    [selectionsEnabled, selectedPoint, dispatch, improvementClusters, isImprovementsExpanded]
   );
 
   const handleBack = useCallback(async () => {
@@ -236,14 +287,26 @@ const Dashboard = () => {
         throw new Error("No data available for iteration");
       }
 
-      console.log("Current data before iteration:", {
-        annotationsCount: currentData.annotations?.length || 0,
-        improvementClustersCount: currentData.improvement_clusters?.length || 0,
-        isDemoMode: currentData.isDemoMode
+      console.log("🔄 [ITERATE DEBUG] Current data from dataManager:", {
+        requestData: currentData.requestData,
+        currentRound: currentData.requestData?.reannotate_round,
       });
+      console.log("🔄 [ITERATE DEBUG] Current requestBody from state:", {
+        requestBody,
+        currentRound: requestBody?.reannotate_round,
+      });
+
+
 
       // Check if we're in demo mode
       if (currentData.isDemoMode && currentData.demoReannotationData) {
+        console.log("🎭 [DEMO MODE DEBUG] Using demo mode iteration:", {
+          isDemoMode: currentData.isDemoMode,
+          demoReannotationData: currentData.demoReannotationData?.length,
+          currentRequestData: currentData.requestData,
+          currentRound: currentData.requestData?.reannotate_round,
+        });
+        
         // Use demo data - data is already mapped in validateAndCleanData
         const mappedAnnotations = currentData.demoReannotationData;
         const mappedImprovementClusters =
@@ -251,11 +314,7 @@ const Dashboard = () => {
         const demoSuggestions =
           currentData.demoReclusterSuggestions || currentData.suggestions || {};
 
-        console.log("Demo iteration data:", {
-          mappedAnnotationsCount: mappedAnnotations?.length || 0,
-          mappedImprovementClustersCount: mappedImprovementClusters?.length || 0,
-          demoSuggestionsKeys: Object.keys(demoSuggestions)
-        });
+
 
         // For demo mode, use the complete guideline with edge case handling
         let demoGuidelineString = "";
@@ -273,8 +332,13 @@ const Dashboard = () => {
           ...(currentData.previousGuidelines || []),
           demoGuidelineString,
         ];
+        
+        console.log("🎭 [DEMO MODE DEBUG] Demo iteration data prepared:", {
+          demoGuidelineString,
+          updatedPreviousGuidelinesDemo: updatedPreviousGuidelinesDemo.length,
+          willUpdateRequestBodyRound: "Demo mode doesn't update round for individual annotation",
+        });
 
-        console.log("Before demo data manager update...");
         // Save data using dataManager
         await dataManager.batchUpdate({
           previousAnnotations: currentData.annotations,
@@ -287,7 +351,6 @@ const Dashboard = () => {
           savedSuggestions: {},
         });
 
-        console.log("Before demo state batch update...");
         // Update state using batch update
         batchUpdate({
           annotations: mappedAnnotations,
@@ -296,9 +359,40 @@ const Dashboard = () => {
           savedSuggestions: {},
           previousAnnotations: currentData.annotations,
           previousGuidelines: updatedPreviousGuidelinesDemo,
+          selectedPoint: null, // Clear selected point after iteration
         });
 
-        console.log("Demo iteration completed successfully");
+        // IMPORTANT: Update requestBody with incremented round for demo mode too
+        if (requestBody) {
+          const currentRound = requestBody.reannotate_round || 0;
+          const nextRound = currentRound + 1;
+          
+          console.log("🎭 [DEMO MODE DEBUG] Updating requestBody round:", {
+            currentRound,
+            nextRound,
+            oldRequestBody: requestBody,
+          });
+          
+          const updatedRequestBody: AnnotationRequest = {
+            ...requestBody,
+            reannotate_round: nextRound,
+          };
+          
+          dispatch({ type: "SET_REQUEST_BODY", payload: updatedRequestBody });
+          
+          // Also save updated requestData to persistent storage for demo mode
+          const updatedRequestData = {
+            examples: updatedRequestBody.examples,
+            annotation_guideline: updatedRequestBody.annotation_guideline,
+            task_id: updatedRequestBody.task_id,
+            reannotate_round: updatedRequestBody.reannotate_round,
+            uploadMethod: (currentData.requestData as { uploadMethod?: "paste" | "upload" })?.uploadMethod || "paste",
+          };
+          
+          console.log("🎭 [DEMO MODE DEBUG] Saving updated requestData for demo:", updatedRequestData);
+          await dataManager.saveData({ requestData: updatedRequestData });
+        }
+
         message.success(
           "Successfully iterated with demo reannotation and recluster data"
         );
@@ -347,22 +441,35 @@ const Dashboard = () => {
         combinedGuidelineString += `\n\nEdge Case Handling:\n${savedSuggestionsText}`;
       }
 
-      console.log("API request guidelines:", combinedGuidelineString);
 
-      // Prepare new request with combined guideline
-      const taskId = "reannotate_task_" + Date.now();
+
+      // Use original task_id instead of generating a new one
+      const originalTaskId = currentData.requestData.task_id;
+      if (!originalTaskId) {
+        throw new Error("No task_id found in stored data");
+      }
+      
+      // Get current round from requestBody, increment for iteration
+      const currentRound = requestBody?.reannotate_round || 0;
+      const nextRound = currentRound + 1;
+      
+      console.log("🔄 [ITERATE DEBUG] Round calculation:", {
+        currentRound,
+        nextRound,
+        requestBodyRound: requestBody?.reannotate_round,
+        originalTaskId,
+      });
+      
       const newRequest: AnnotationRequest = {
         examples: currentData.requestData.examples,
         annotation_guideline: combinedGuidelineString,
-        task_id: taskId,
-        reannotate_round: 1,  // This is a re-annotation
+        task_id: originalTaskId, // Use original task_id
+        reannotate_round: nextRound, // Use incremented round
       };
 
-      console.log("Making API call to /annotate/ with request:", {
-        examplesCount: newRequest.examples.length,
-        taskId: newRequest.task_id,
-        reannotateRound: newRequest.reannotate_round
-      });
+      console.log("🔄 [ITERATE DEBUG] New request for /annotate/:", newRequest);
+
+
 
       // Make API call to /annotate/
       const annotationResponse = await fetch(`${API_BASE_URL}/annotate/`, {
@@ -378,20 +485,15 @@ const Dashboard = () => {
       }
 
       const annotationData = await annotationResponse.json();
-      console.log("Annotation API response:", {
-        annotationsCount: annotationData.annotations?.length || 0,
-        firstAnnotation: annotationData.annotations?.[0]
-      });
 
       // Make API call to /cluster/
       const clusterRequestBody: ClusterRequest = {
         annotation_result: annotationData.annotations,
         annotation_guideline: combinedGuidelineString,
-        task_id: taskId,
-        reannotate_round: 1,  // This is a re-annotation
+        task_id: originalTaskId, // Use originalTaskId instead of taskId
+        reannotate_round: nextRound, // Use nextRound to match
       };
 
-      console.log("Making API call to /cluster/...");
       const clusterResponse = await fetch(`${API_BASE_URL}/cluster/`, {
         method: "POST",
         headers: {
@@ -405,11 +507,6 @@ const Dashboard = () => {
       }
 
       const clusterData = await clusterResponse.json();
-      console.log("Cluster API response:", {
-        improvementClustersCount: clusterData.improvement_clusters?.length || 0,
-        suggestionsKeys: Object.keys(clusterData.suggestions || {}),
-        firstImprovementCluster: clusterData.improvement_clusters?.[0]
-      });
 
       // Map backend data to frontend format
       const mappedAnnotations = (annotationData.annotations || []).map(
@@ -419,12 +516,7 @@ const Dashboard = () => {
         mapBackendDataToDataPoint
       );
 
-      console.log("Mapped data:", {
-        mappedAnnotationsCount: mappedAnnotations.length,
-        mappedImprovementClustersCount: mappedImprovementClusters.length,
-        firstMappedAnnotation: mappedAnnotations[0],
-        firstMappedImprovementCluster: mappedImprovementClusters[0]
-      });
+
 
       // Update previous guidelines list
       const updatedPreviousGuidelines = [
@@ -432,7 +524,6 @@ const Dashboard = () => {
         combinedGuidelineString,
       ];
 
-      console.log("Before data manager update...");
       // Save data using dataManager
       await dataManager.batchUpdate({
         previousAnnotations: currentData.annotations,
@@ -445,7 +536,6 @@ const Dashboard = () => {
         savedSuggestions: {},
       });
 
-      console.log("Before state batch update...");
       // Update state using batch update
       batchUpdate({
         annotations: mappedAnnotations,
@@ -454,20 +544,48 @@ const Dashboard = () => {
         savedSuggestions: {},
         previousAnnotations: currentData.annotations,
         previousGuidelines: updatedPreviousGuidelines,
+        selectedPoint: null, // Clear selected point after iteration
       });
 
-      console.log("API iteration completed successfully");
+      // Update requestBody with new round to maintain consistency
+      if (requestBody) {
+        const updatedRequestBody: AnnotationRequest = {
+          ...requestBody,
+          reannotate_round: nextRound,
+        };
+        
+        console.log("🔄 [ITERATE DEBUG] Updating requestBody with new round:", {
+          oldRequestBody: requestBody,
+          updatedRequestBody,
+          nextRound,
+        });
+        
+        dispatch({ type: "SET_REQUEST_BODY", payload: updatedRequestBody });
+        
+        // Also save updated requestData to persistent storage
+        const updatedRequestData = {
+          examples: updatedRequestBody.examples,
+          annotation_guideline: updatedRequestBody.annotation_guideline,
+          task_id: updatedRequestBody.task_id,
+          reannotate_round: updatedRequestBody.reannotate_round,
+          uploadMethod: (currentData.requestData as { uploadMethod?: "paste" | "upload" })?.uploadMethod || "paste",
+        };
+        
+        console.log("🔄 [ITERATE DEBUG] Saving updated requestData to dataManager:", updatedRequestData);
+        await dataManager.saveData({ requestData: updatedRequestData });
+      }
+
       message.success("Successfully iterated annotation guideline");
     } catch (error) {
       console.error("Error during iteration:", error);
-      message.error(
-        "Failed to iterate: " +
-          (error instanceof Error ? error.message : "Unknown error")
-      );
+      
+      // Use centralized error handling utility
+      const errorMessage = getApiErrorMessage(error);
+      message.error(errorMessage, 8); // Show error message for 8 seconds to ensure user sees it
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
-  }, [dispatch, batchUpdate, savedSuggestions]);
+  }, [dispatch, batchUpdate, savedSuggestions, requestBody]);
 
   // Handler for saving a suggestion
   const handleSaveSuggestion = useCallback(
@@ -513,6 +631,30 @@ const Dashboard = () => {
     [savedSuggestions, dispatch]
   );
 
+  // Handler for editing a suggestion
+  const handleEditSuggestion = useCallback(
+    async (clusterKey: string, newSuggestion: string) => {
+      const newSuggestions = {
+        ...savedSuggestions,
+        [clusterKey]: newSuggestion,
+      };
+
+      try {
+        // Save to storage using dataManager
+        await dataManager.saveData({ savedSuggestions: newSuggestions });
+
+        // Update state
+        dispatch({ type: "SET_SAVED_SUGGESTIONS", payload: newSuggestions });
+        
+        message.success(`Successfully updated edge case handling rule`);
+      } catch (error) {
+        console.error("Failed to edit suggestion:", error);
+        message.error("Failed to update suggestion");
+      }
+    },
+    [savedSuggestions, dispatch]
+  );
+
   // Handler for saving all suggestions at once
   const handleSaveAllSuggestions = useCallback(async () => {
     if (!suggestions || Object.keys(suggestions).length === 0) {
@@ -548,7 +690,190 @@ const Dashboard = () => {
     }
   }, [suggestions, savedSuggestions, dispatch]);
 
-  // Handler for adding a new example
+  // Handler for adding a new example through manual input
+  const handleShowAddExampleModal = useCallback(() => {
+    setIsReannotation(false);
+    setNewExampleText("");
+    setShowAddExampleModal(true);
+  }, []);
+
+  // Handler for re-annotating an existing example
+  const handleReannotateExample = useCallback((point: DataPoint) => {
+    setIsReannotation(true);
+    setNewExampleText(point.text_to_annotate);
+    setShowAddExampleModal(true);
+  }, []);
+
+  // Handler for confirming add example (calls API)
+  const handleConfirmAddExample = useCallback(async () => {
+    if (!newExampleText.trim()) {
+      message.error("Please enter text for the new example");
+      return;
+    }
+
+    if (!requestBody) {
+      message.error("No annotation guideline available");
+      return;
+    }
+
+    try {
+      dispatch({ type: "SET_LOADING", payload: true });
+      setShowAddExampleModal(false);
+
+      // Get the original task_id from stored data to ensure consistency
+      const savedData = await dataManager.loadData();
+      
+      console.log("📝 [ADD EXAMPLE DEBUG] Starting add example process:", {
+        currentRequestBody: requestBody,
+        savedData: savedData?.requestData,
+        isReannotation,
+      });
+      
+      const originalTaskId = savedData?.requestData?.task_id || requestBody.task_id;
+      
+      if (!originalTaskId) {
+        throw new Error("No task_id found in stored data. Please re-run the annotation from Home page.");
+      }
+
+      // Prepare request for single example annotation
+      // Use the current round from requestBody (which should be the latest after iterate)
+      // But also check savedData in case there's a sync issue
+      const requestBodyRound = requestBody.reannotate_round || 0;
+      const savedDataRound = savedData?.requestData?.reannotate_round || 0;
+      const currentRound = Math.max(requestBodyRound, savedDataRound); // Use the higher value
+      
+      console.log("📝 [ADD EXAMPLE DEBUG] Round information:", {
+        requestBodyRound: requestBody.reannotate_round,
+        savedDataRound: savedData?.requestData?.reannotate_round,
+        currentRound,
+        originalTaskId,
+        maxRoundLogic: `Math.max(${requestBodyRound}, ${savedDataRound}) = ${currentRound}`,
+      });
+      
+      console.log("📝 [ADD EXAMPLE DEBUG] POTENTIAL ISSUE:", {
+        roundMismatch: requestBodyRound !== savedDataRound,
+        usingRequestBodyRound: requestBodyRound,
+        usingSavedDataRound: savedDataRound,
+        finalCurrentRound: currentRound,
+      });
+      
+      const annotationRequest: AnnotationRequest = {
+        examples: [newExampleText.trim()],
+        annotation_guideline: requestBody.annotation_guideline,
+        task_id: originalTaskId,
+        reannotate_round: currentRound,
+      };
+
+      console.log("📝 [ADD EXAMPLE DEBUG] Annotation request being sent:", annotationRequest);
+
+      // Call /annotate_one/ API
+      const response = await fetch(`${API_BASE_URL}/annotate_one/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(annotationRequest),
+      });
+
+      console.log("📝 [ADD EXAMPLE DEBUG] API response status:", response.status);
+
+
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! Status: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+
+      // Validate response structure
+      if (!data || !Array.isArray(data.annotations)) {
+        throw new Error("Invalid response structure from API");
+      }
+
+      // Map backend data to frontend format
+      const newAnnotations = (data.annotations || []).map(mapBackendDataToDataPoint);
+      
+      if (newAnnotations.length > 0) {
+        const newAnnotation = newAnnotations[0]; // Should only have one item for annotate_one
+        // Mark as reannotated
+        newAnnotation.isReannotated = true;
+        
+
+
+        let updatedAnnotations: DataPoint[];
+        const updatedImprovementClusters: DataPoint[] = [...improvementClusters];
+        
+        // Check if this annotation already exists in annotations (by uid or text)
+        const existingIndex = annotations.findIndex(existing => 
+          (existing.uid && newAnnotation.uid && existing.uid === newAnnotation.uid) ||
+          existing.text_to_annotate === newAnnotation.text_to_annotate
+        );
+        
+        // Check if this annotation exists in improvement clusters (by uid or text)
+        const existingImprovementIndex = improvementClusters.findIndex(existing => 
+          (existing.uid && newAnnotation.uid && existing.uid === newAnnotation.uid) ||
+          existing.text_to_annotate === newAnnotation.text_to_annotate
+        );
+        
+
+
+        if (existingIndex !== -1) {
+          // Update existing annotation
+          updatedAnnotations = [...annotations];
+          updatedAnnotations[existingIndex] = newAnnotation;
+          message.success("Successfully re-annotated existing example");
+        } else {
+          // Add new annotation
+          updatedAnnotations = [...annotations, newAnnotation];
+          message.success("Successfully annotated and added new example");
+        }
+
+        // Also update the same point in improvement clusters if it exists there
+        if (existingImprovementIndex !== -1) {
+          // Get edge case coordinates from the API response
+          const apiResponse = data.annotations[0]; // Original API response data
+          const edgeCasePcaX = apiResponse?.edge_case_pca_x;
+          const edgeCasePcaY = apiResponse?.edge_case_pca_y;
+          
+          // Create updated improvement cluster point
+          const updatedImprovementPoint = {
+            ...newAnnotation,
+            // Use edge_case_pca coordinates for improvement clusters positioning
+            pca_x: edgeCasePcaX !== undefined && edgeCasePcaX !== null ? edgeCasePcaX : improvementClusters[existingImprovementIndex].pca_x,
+            pca_y: edgeCasePcaY !== undefined && edgeCasePcaY !== null ? edgeCasePcaY : improvementClusters[existingImprovementIndex].pca_y,
+          };
+          
+          updatedImprovementClusters[existingImprovementIndex] = updatedImprovementPoint;
+        }
+
+        // Save to storage using dataManager
+        await dataManager.saveData({ 
+          annotations: updatedAnnotations,
+          improvement_clusters: updatedImprovementClusters
+        });
+
+        // Update state
+        dispatch({ type: "SET_ANNOTATIONS", payload: updatedAnnotations });
+        dispatch({ type: "SET_IMPROVEMENT_CLUSTERS", payload: updatedImprovementClusters });
+        
+        setNewExampleText("");
+      } else {
+        throw new Error("No annotation data received");
+      }
+    } catch (error) {
+      console.error("Error adding new example:", error);
+      console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
+      
+      // Use centralized error handling utility
+      const errorMessage = getApiErrorMessage(error);
+      message.error(errorMessage, 8); // Show error message for 8 seconds to ensure user sees it
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
+  }, [newExampleText, requestBody, annotations, improvementClusters, dispatch, isReannotation]);
+
+  // Handler for adding a new example (legacy function for backward compatibility)
   const handleAddExample = useCallback(
     async (example: Partial<DataPoint>) => {
       if (!example.text_to_annotate || example.text_to_annotate.trim() === "") {
@@ -611,6 +936,8 @@ const Dashboard = () => {
       const updatedData = {
         examples: updatedRequestBody.examples,
         annotation_guideline: updatedRequestBody.annotation_guideline,
+        task_id: updatedRequestBody.task_id,
+        reannotate_round: updatedRequestBody.reannotate_round,
         uploadMethod: ((
           requestBody as AnnotationRequest & { uploadMethod?: string }
         ).uploadMethod || "paste") as "paste" | "upload",
@@ -646,6 +973,8 @@ const Dashboard = () => {
       const updatedData = {
         examples: updatedRequestBody.examples,
         annotation_guideline: updatedRequestBody.annotation_guideline,
+        task_id: updatedRequestBody.task_id,
+        reannotate_round: updatedRequestBody.reannotate_round,
         uploadMethod: ((
           requestBody as AnnotationRequest & { uploadMethod?: string }
         ).uploadMethod || "paste") as "paste" | "upload",
@@ -678,6 +1007,8 @@ const Dashboard = () => {
       const updatedData = {
         examples: updatedRequestBody.examples,
         annotation_guideline: updatedRequestBody.annotation_guideline,
+        task_id: updatedRequestBody.task_id,
+        reannotate_round: updatedRequestBody.reannotate_round,
         uploadMethod: ((
           requestBody as AnnotationRequest & { uploadMethod?: string }
         ).uploadMethod || "paste") as "paste" | "upload",
@@ -823,6 +1154,48 @@ const Dashboard = () => {
         )}
       </Modal>
 
+      {/* Add Example Modal */}
+      <Modal
+        isOpen={showAddExampleModal}
+        onClose={() => {
+          setShowAddExampleModal(false);
+          setNewExampleText("");
+          setIsReannotation(false);
+        }}
+        title={isReannotation ? "Re-annotate Example" : "Add New Example"}
+        onConfirm={handleConfirmAddExample}
+        confirmText={isReannotation ? "Re-annotate" : "Annotate & Add"}
+        cancelText="Cancel"
+      >
+        <div className={styles.modalIntroText}>
+          <p className={styles.modalMainText}>
+            {isReannotation 
+              ? "Re-annotate this example using the current guidelines."
+              : "Enter a new text example to be annotated and added to the dataset."
+            }
+          </p>
+          <p className={styles.modalSubText}>
+            {isReannotation
+              ? "This example will be sent to the annotation API and re-annotated using the current guidelines. The result will replace the existing annotation."
+              : "This example will be sent to the annotation API and automatically annotated using the current guidelines, then added to the scatter plot visualization."
+            }
+          </p>
+        </div>
+        <div className={styles.addExampleForm}>
+          <label htmlFor="newExampleInput" className={styles.formLabel}>
+            Enter text to annotate:
+          </label>
+          <textarea
+            id="newExampleInput"
+            className={styles.formTextarea}
+            value={newExampleText}
+            onChange={(e) => setNewExampleText(e.target.value)}
+            placeholder="Enter your text example here..."
+            rows={4}
+          />
+        </div>
+      </Modal>
+
       <div
         ref={leftPanelRef}
         className={styles.guidelinesPanel}
@@ -902,7 +1275,7 @@ const Dashboard = () => {
                   })
                 ) : (
                   <div className={styles.emptyState}>
-                    <p>No previous guidelines available.</p>
+                    <p>No previous guidelines available</p>
                   </div>
                 )}
               </div>
@@ -933,7 +1306,7 @@ const Dashboard = () => {
             </div>
             {isGuidelineExpanded && (
               <div className={styles.guidelinesContent}>
-                {requestBody && (
+                {requestBody ? (
                   <>
                     <h3 className={styles.guidelineHeader}>Task Description</h3>
                     <textarea
@@ -988,6 +1361,10 @@ const Dashboard = () => {
                       </button>
                     </div>
                   </>
+                ) : (
+                  <div className={styles.emptyState}>
+                    <p>No current guidelines available</p>
+                  </div>
                 )}
               </div>
             )}
@@ -1020,6 +1397,7 @@ const Dashboard = () => {
                 <ClusterSummary
                   savedSuggestions={savedSuggestions}
                   onRemoveSuggestion={handleRemoveSuggestion}
+                  onEditSuggestion={handleEditSuggestion}
                 />
               </div>
             )}
@@ -1116,7 +1494,7 @@ const Dashboard = () => {
             </div>
           ) : (
             <div className={styles.noDataMessage}>
-              <p>No data available. Please submit text for analysis.</p>
+              <p>No data available. Please submit text or file for analysis.</p>
             </div>
           )}
         </div>
@@ -1158,26 +1536,18 @@ const Dashboard = () => {
               )}
               <h2>All Examples</h2>
               <div className={styles.headerActions}>
-                {/* Temporarily disable add new example */}
-                {/* <Tooltip title="Add new example">
-                  <Button
-                    type="primary"
-                    shape="circle"
-                    icon={<PlusOutlined style={{ fontSize: "14px" }} />}
-                    size="small"
+                <Tooltip title="Add new example for annotation">
+                  <button
                     className={styles.addExampleButton}
                     onClick={(e) => {
                       e.stopPropagation();
-                      const pointDetailsElement = document.querySelector(
-                        ".pointDetailsAddButton"
-                      );
-                      if (pointDetailsElement) {
-                        (pointDetailsElement as HTMLButtonElement).click();
-                      }
+                      handleShowAddExampleModal();
                     }}
                     aria-label="Add new example"
-                  />
-                </Tooltip> */}
+                  >
+                    <PlusOutlined style={{ fontSize: "14px" }} />
+                  </button>
+                </Tooltip>
               </div>
             </div>
             {isExamplesExpanded && (
@@ -1188,6 +1558,7 @@ const Dashboard = () => {
                   onPointSelect={handlePointSelect}
                   onAddExample={handleAddExample}
                   previousAnnotations={previousAnnotations}
+                  onReannotate={handleReannotateExample}
                 />
               </div>
             )}
@@ -1259,6 +1630,7 @@ const Dashboard = () => {
                   onSaveSuggestion={handleSaveSuggestion}
                   savedSuggestions={savedSuggestions}
                   previousAnnotations={previousAnnotations}
+                  onReannotate={handleReannotateExample}
                 />
               </div>
             )}

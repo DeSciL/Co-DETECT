@@ -73,15 +73,7 @@ const DualScatterPlot = ({
   onPointHover,
   hoveredPoint: externalHoveredPoint
 }: DualScatterPlotProps) => {
-  // Debug: log data changes
-  useEffect(() => {
-    console.log("DualScatterPlot data changed:", {
-      topPlotDataCount: topPlot.data?.length || 0,
-      bottomPlotDataCount: bottomPlot?.data?.length || 0,
-      topPlotFirstItem: topPlot.data?.[0],
-      bottomPlotFirstItem: bottomPlot?.data?.[0]
-    });
-  }, [topPlot.data, bottomPlot?.data]);
+
 
   // Create a derived state that tracks if the selected point exists in each dataset
   const [topSelectedPoint, setTopSelectedPoint] = useState<DataPoint | null>(null);
@@ -203,9 +195,9 @@ const DualScatterPlot = ({
     
     // Update these to match the actual plot items exactly
     const shapeItems = [
-      { label: "Unclear (-1)", shape: "diamond", color: "#777777" },  // Diamond for unclear annotation (-1)
+      { label: "Unclear (-1)", shape: "cross", color: "#777777" },    // Cross for unclear annotation (-1)
       { label: "Negative (0)", shape: "circle", color: "#777777" },    // Circle for negative (0)
-      { label: "Positive (1)", shape: "cross", color: "#777777" }     // Cross for positive (1)
+      { label: "Positive (1)", shape: "circle", color: "#777777" }     // Circle for positive (1)
     ];
     
     const shapesList = document.createElement('ul');
@@ -264,17 +256,6 @@ const DualScatterPlot = ({
         
         shape.appendChild(crossBefore);
         shape.appendChild(crossAfter);
-      } else if (item.shape === "diamond") {
-        // Diamond for "Unclear"
-        shape.style.cssText = `
-          display: inline-block !important;
-          position: relative !important;
-          width: 12px !important;
-          height: 12px !important;
-          background-color: ${item.color} !important;
-          margin-right: 8px !important;
-          transform: rotate(45deg) !important;
-        `;
       } else if (item.shape === "minus") {
         // Minus for "Negative"
         shape.style.cssText = `
@@ -693,7 +674,7 @@ const DualScatterPlot = ({
 
     // Categorize annotation values
     const getAnnotationType = (annotation: string | number): "positive" | "negative" | "neutral" | "unclear" => {
-      if (annotation === 1 || annotation === "1") {
+      if (annotation === 1 || annotation === "1" || annotation === "+1") {
         return "positive";
       } else if (annotation === -1 || annotation === "-1") {
         return "unclear";
@@ -818,9 +799,8 @@ const DualScatterPlot = ({
       .attr("class", "points-container");
 
     // Create symbol generators for different shapes based on annotation
-    const symbolCircle = d3.symbol().type(d3.symbolCircle);  // For neutral annotations (0)
-    const symbolCross = d3.symbol().type(d3.symbolCross);  // For positive annotations (1)
-    const symbolDiamond = d3.symbol().type(d3.symbolDiamond);  // For unclear annotations (-1)
+    const symbolCircle = d3.symbol().type(d3.symbolCircle);  // For neutral annotations (0) and positive annotations (1)
+    const symbolCross = d3.symbol().type(d3.symbolCross);  // For unclear annotations (-1)
 
     // Add points
     pointsContainer
@@ -832,11 +812,11 @@ const DualScatterPlot = ({
         const annotationType = getAnnotationType(d.annotation);
         
         if (annotationType === "positive") {
-          return symbolCross.size(size * 1.1)(); // Positive annotation: cross - reduced from 1.5 to 1.1
+          return symbolCircle.size(size)(); // Positive annotation (1, +1): circle
         } else if (annotationType === "unclear") {
-          return symbolDiamond.size(size * 0.8)(); // Unclear annotation: diamond - reduced from 1.2 to 0.8
+          return symbolCross.size(size * 1.1)(); // Unclear annotation (-1): cross
         } else {
-          return symbolCircle.size(size)(); // Neutral annotation: circle - baseline
+          return symbolCircle.size(size)(); // Neutral annotation (0): circle - baseline
         }
       })
       .attr("transform", d => {
@@ -1203,7 +1183,7 @@ const DualScatterPlot = ({
     if (dimensions.width === 0) return;
     
     // Debug dimensions to ensure they're being set correctly
-    // console.log("DualScatterPlot dimensions:", dimensions);
+    
     
     if (topSvgRef.current && processedTopData && Array.isArray(processedTopData)) {
       renderPlot(

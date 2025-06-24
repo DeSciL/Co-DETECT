@@ -16,6 +16,7 @@ interface ClusterGroupProps {
   isSaved?: boolean;
   forceCollapsed?: number;
   previousAnnotations?: DataPoint[];
+  onReannotate?: (point: DataPoint) => void;
 }
 
 const ClusterGroup: React.FC<ClusterGroupProps> = ({
@@ -28,6 +29,7 @@ const ClusterGroup: React.FC<ClusterGroupProps> = ({
   isSaved = false,
   forceCollapsed,
   previousAnnotations,
+  onReannotate,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isScrollable, setIsScrollable] = useState(false);
@@ -91,20 +93,52 @@ const ClusterGroup: React.FC<ClusterGroupProps> = ({
       );
       
       if (selectedItem && clusterItemsRef.current) {
-        // Find the index of the selected item
-        const index = items.findIndex(item => 
-          item.uid === selectedPoint.uid || 
-          item.text_to_annotate === selectedPoint.text_to_annotate
-        );
-        
-        if (index !== -1) {
-          // Approximate scroll position based on item height (adjust as needed)
-          const itemHeight = 150; // Estimated average height of an item
-          clusterItemsRef.current.scrollTop = index * itemHeight;
-        }
+        // Use setTimeout to ensure the DOM has finished rendering after expansion
+        setTimeout(() => {
+          if (clusterItemsRef.current) {
+            // Find the index of the selected item
+            const index = items.findIndex(item => 
+              item.uid === selectedPoint.uid || 
+              item.text_to_annotate === selectedPoint.text_to_annotate
+            );
+            
+            if (index !== -1) {
+              // Try to get the actual element first for more accurate scrolling
+              const selectedElement = clusterItemsRef.current.children[index + (suggestion ? 1 : 0)] as HTMLElement;
+              
+              if (selectedElement) {
+                // Scroll to the actual element position
+                selectedElement.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'center',
+                  inline: 'nearest'
+                });
+              } else {
+                // Fallback to approximate scroll position based on item height
+                const itemHeight = 150; // Estimated average height of an item
+                const suggestionHeight = suggestion ? 80 : 0; // Account for suggestion header
+                clusterItemsRef.current.scrollTop = suggestionHeight + (index * itemHeight);
+              }
+            }
+          }
+        }, 150); // Small delay to ensure expansion animation completes
       }
     }
-  }, [selectedPoint, isExpanded, items]);
+  }, [selectedPoint, isExpanded, items, suggestion]);
+
+  // Auto-expand cluster if selectedPoint belongs to this cluster
+  useEffect(() => {
+    if (selectedPoint && !isExpanded) {
+      const selectedItem = items.find(item => 
+        item.uid === selectedPoint.uid || 
+        item.text_to_annotate === selectedPoint.text_to_annotate
+      );
+      
+      if (selectedItem) {
+        setIsExpanded(true);
+      }
+    }
+  }, [selectedPoint, items, isExpanded]);
 
   // Handler for save button click - now opens the confirmation modal instead
   const handleSaveButtonClick = (e: React.MouseEvent) => {
@@ -142,7 +176,7 @@ const ClusterGroup: React.FC<ClusterGroupProps> = ({
           title={isExpanded ? "Collapse cluster" : "Expand cluster"}
           placement="left"
           mouseEnterDelay={0.5}
-          overlayClassName="compact-tooltip"
+          classNames={{ root: "compact-tooltip" }}
         >
           <div 
             className={styles.expandIcon}
@@ -172,7 +206,7 @@ const ClusterGroup: React.FC<ClusterGroupProps> = ({
                     title={isSaved ? "Already saved to Edge Case Handling" : "Add to Edge Case Handling"}
                     placement="top"
                     mouseEnterDelay={0.5}
-                    overlayClassName="compact-tooltip"
+                    classNames={{ root: "compact-tooltip" }}
                   >
                     <Button 
                       type={isSaved ? "primary" : "default"}
@@ -203,6 +237,7 @@ const ClusterGroup: React.FC<ClusterGroupProps> = ({
                 onClick={() => onPointSelect(item)}
                 hideGuidelineImprovement={true}
                 previousAnnotations={previousAnnotations}
+                onReannotate={onReannotate}
               />
             );
           })}

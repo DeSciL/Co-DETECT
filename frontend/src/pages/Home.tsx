@@ -8,7 +8,8 @@ import {
   Typography, 
   Spin,
   message,
-  Tooltip
+  Tooltip,
+  Space
 } from 'antd';
 import { 
   UploadOutlined, 
@@ -20,6 +21,7 @@ import styles from "../styles/Home.module.css";
 import { AnnotationRequest, DataPoint, mapBackendDataToDataPoint, parseReclusterResponse } from "../types/data";
 import { API_BASE_URL } from "../config/apiConfig";
 import { dataManager } from "../services/dataManager";
+import { getApiErrorMessage } from "../utils/errorHandling";
 import TourGuide from "../components/TourGuide";
 import StepIndicator from "../components/StepIndicator";
 
@@ -33,7 +35,7 @@ const Home = () => {
   const [labels, setLabels] = useState<string[]>([]);
   const [newLabel, setNewLabel] = useState("");
   const [textToAnnotate, setTextToAnnotate] = useState("");
-  const [uploadMethod, setUploadMethod] = useState<"paste" | "upload">("paste");
+  const [uploadMethod, setUploadMethod] = useState<"paste" | "upload">("upload");
   const [parseError, setParseError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -253,6 +255,8 @@ const Home = () => {
     
     // Use user-provided task_id instead of generating one
     const finalTaskId = taskId.trim() || `annotation_task_${Date.now()}`; // Fallback if empty
+    
+
 
     // Prepare the request body for annotation
     const annotationRequestBody: AnnotationRequest = {
@@ -400,7 +404,8 @@ const Home = () => {
         requestData: {
           examples,
           annotation_guideline,  // Use the string format
-          uploadMethod
+          uploadMethod,
+          task_id: finalTaskId,  // Include the user-provided task_id
         }
       };
       
@@ -411,7 +416,10 @@ const Home = () => {
       navigate("/dashboard");
     } catch (error) {
       console.error("Error during API calls:", error);
-      setApiError(error instanceof Error ? error.message : "An unknown error occurred");
+      
+      // Use centralized error handling utility
+      const errorMessage = getApiErrorMessage(error);
+      setApiError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -445,8 +453,7 @@ const Home = () => {
       const reannotationData = await reannotationResponse.json();
       const reclusterData = await reclusterResponse.json();
       
-      // Add debug logging for current issue
-      console.log("Demo annotationData.annotations (first 5):", annotationData.annotations.slice(0, 5));
+
       
       // Map backend data to frontend format (same as in handleSubmit)
       const mappedAnnotations = annotationData.annotations.map(mapBackendDataToDataPoint);
@@ -458,16 +465,15 @@ const Home = () => {
       const mappedReclusterData = parsedReclusterData.improvement_clusters || [];
       const reclusterSuggestions = parsedReclusterData.suggestions || {};
       
-      console.log("Demo mappedAnnotations (first 5):", mappedAnnotations.slice(0, 5));
-      console.log("Demo reclusterSuggestions:", reclusterSuggestions);
-      console.log("Demo mappedReclusterData (first 3):", mappedReclusterData.slice(0, 3));
+
       
       // Create a mock request data with guideline as string
       const demoGuidelineString = `${task}\n\nLabels:\n${labels.map(label => `- ${label}`).join('\n')}`;
       const requestData = {
         examples: annotationData.examples || [],
         annotation_guideline: demoGuidelineString,
-        uploadMethod: "paste" as const
+        uploadMethod: "paste" as const,
+        task_id: taskId.trim() || "demo_task", // Include task_id for demo
       };
       
       // Combine the data from both responses
@@ -563,7 +569,9 @@ const Home = () => {
       
       <Card className={styles.uploadCard}>
         <div className={styles.headerSection}>
-          <Title level={3} className={styles.mainTitle}>LLM-assisted Annotation & Analysis Tool</Title>
+          <Title level={3} className={styles.mainTitle}>
+            AutoDETECT: <strong>Auto</strong>matic <strong>D</strong>iscovery of <strong>E</strong>dge cases in <strong>TE</strong>xt <strong>C</strong>lassifica<strong>T</strong>ion
+          </Title>
         </div>
         
         <StepIndicator currentStep={getCurrentStep()} />
@@ -595,7 +603,7 @@ const Home = () => {
               <div className={styles.inputSection} data-tour="task-id-section">
                 <div className={styles.sectionTitleWithTooltip}>
                   <Title level={5} className={styles.sectionTitle}>Task ID</Title>
-                  <Tooltip title="Enter a unique task ID for your annotation task. This enables backend caching for faster processing. Use meaningful names like 'hate_speech_detection' or 'sentiment_analysis_tweets'.">
+                  <Tooltip title="Enter a unique task ID for your annotation task. It will be used in saving annotation results, histories and edge case analyses.">
                     <InfoCircleOutlined className={styles.infoIcon} />
                   </Tooltip>
                 </div>
@@ -664,7 +672,7 @@ const Home = () => {
             <div className={styles.contentContainer} data-tour="text-input">
               <div className={styles.uploadMethodToggle}>
                 <div className={styles.uploadModeSection}>
-                  <Button.Group>
+                  <Space.Compact>
                     <Button
                       type={uploadMethod === "paste" ? "primary" : "default"}
                       onClick={() => setUploadMethod("paste")}
@@ -683,7 +691,7 @@ const Home = () => {
                     >
                       Upload File
                     </Button>
-                  </Button.Group>
+                  </Space.Compact>
                 </div>
               </div>
               
