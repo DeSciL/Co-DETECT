@@ -40,17 +40,11 @@ Then restart your terminal or run:
 source ~/.nvm/nvm.sh
 ```
 
-#### b. Install the Required Node.js Version
-```bash
-nvm install 22.11.0
-nvm use 22.11.0
-nvm alias default 22.11.0
-```
-
-#### c. Now Start Frontend
+#### b. Install and Start Frontend
 ```bash
 cd frontend
-# Optional: nvm use
+nvm install      # Reads version from .nvmrc (v22.11.0)
+nvm use          # Switches to the project's Node.js version
 npm install
 npm run dev
 ```
