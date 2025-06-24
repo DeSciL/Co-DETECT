@@ -66,19 +66,29 @@ Open [**Local Host**](http://localhost:5173)
 2. **Labels**: Add the categories you want to classify (minimum 2 labels)
 3. **Text Input**: Paste text directly or upload CSV file
 4. **Submit**: Click "Submit" to start analysis (or "Load Demo Data" for quick demo)
----
+
 #### Dashboard Page - Analyze Results
 - **Left Panel**: 
   - **Previous Guidelines**: Review earlier guideline versions
+  [Previous Guidelines](illustration_figures/previous_guideline.png)
   - **Current Guidelines**: Edit task description and labels
+  [Current Guidelines](illustration_figures/current_guideline.png)
   - **Edge Case Handling**: Saved improvement rules
+  [Edge Case Handling](illustration_figures/edge_case_handling.png)
 - **Center Panel**: **Dual Scatter Plots**
   - **Upper plot**: All annotated examples ↔ **Right: All Examples**
+  [Upper plot](illustration_figures/upper_plot.png)
   - **Lower plot**: Edge cases needing attention ↔ **Right: Suggested Edge Cases**
+  [Lower plot](illustration_figures/lower_plot.png)
 - **Right Panel**:
   - **All Examples**: Click points or examples to see details
-  - **Suggested Edge Cases**: Click + to save suggestions, then iterate
-  - **Annotate New Examples**: Click `Add New` to annotate additional individual samples
+  [All Example](illustration_figures/all_examples.png)
+  - **Suggested Edge Cases**: Click + to save edge case handling suggestions, then iterate (iterate buttom at top right corner)
+  [Save Suggestions](illustration_figures/suggested_edge_cases.png)
+  [Save Suggestions](illustration_figures/suggestions_saved.png)
+  - **Annotate New Examples**: Click `Annotate New` to annotate additional individual samples
+  [Annotate New](illustration_figures/add_new.png)
+  [Reannotate Existing](illustration_figures/suggested_edge_cases_reannotate.png)
 
 ### 4. Two Testing Modes
 
