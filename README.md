@@ -32,7 +32,7 @@ uvicorn main:app
 ```
 
 ### 2. Run Analysis Using Our Frontend
-After launching the backend locally, you can run the analysis using our [Deployed Frontend](https://autodetect.vercel.app/)
+After launching the backend locally, you can run the analysis using our [**Deployed Frontend**](https://autodetect.vercel.app/)
 
 ### 2a. (Alternative) Launch Frontend on Your Own
 
