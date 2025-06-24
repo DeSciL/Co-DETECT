@@ -18,6 +18,9 @@ AutoDETECT: **Auto**matic **D**iscovery of **E**dge cases in **TE**xt **C**lassi
 - Test actual data processing pipeline
 - Recommended for thorough evaluation
 
+---
+## How to Use
+
 ### 0. API Key Configuration
 
 #### For Graders (Recommended)
