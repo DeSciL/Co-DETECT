@@ -293,7 +293,7 @@ The <observable condition> should not be too specific to be **GENERALIZABLE**, a
 Examples:
 - "When X and Y co-occur but Z is absent -> classify as xxx"  
 - "If context suggests both A and B -> refuse to classify (-1)"
-- Bad Generalizability: When the text says ‘penguins in Antarctica’ on May 3, 2021 ... -> <action>
+- Bad Generalizability: When the text says 'penguins in Antarctica' on May 3, 2021 ... -> <action>
 - Good Generalizability: When a rare entity is mentioned with no supporting context ... -> <action>
 
 If confidence > 75 and annotation ≠ -1, output the string "EMPTY".
@@ -338,7 +338,7 @@ The <observable condition> should not be too specific to be **GENERALIZABLE**, a
 Examples:
 - "When X and Y co-occur but Z is absent -> classify as xxx"  
 - "If context suggests both A and B -> refuse to classify (-1)"
-- Bad Generalizability: When the text says ‘penguins in Antarctica’ on May 3, 2021 ... -> <action>
+- Bad Generalizability: When the text says 'penguins in Antarctica' on May 3, 2021 ... -> <action>
 - Good Generalizability: When a rare entity is mentioned with no supporting context ... -> <action>
 
 If it is not a new edge case, output the string "EMPTY".
@@ -584,6 +584,7 @@ def get_embeddings_with_cache(texts, model, client):
     """
     Returns the embedding for a given text and model, using diskcache for caching.
     If embedding is cached, returns from cache. Otherwise, computes and stores in cache.
+    If there's an error, divides the batch and retries.
 
     Args:
         text (str): The text to embed.
@@ -605,12 +606,31 @@ def get_embeddings_with_cache(texts, model, client):
                 to_embed.append(texts[i])
                 to_embed_idxs.append(i)
 
-        # 2. Batch embed uncached
+        # 2. Batch embed uncached with error handling
         if to_embed:
-            response = client.embeddings.create(input=to_embed, model=model)
-            # Assuming response.data is ordered and each .embedding is the vector
-            for i, emb in zip(to_embed_idxs, response.data):
-                cache[keys[i]] = emb.embedding
+            def embed_batch_with_retry(batch_texts, batch_indices):
+                """Embed a batch of texts with retry logic by dividing on error"""
+                if not batch_texts:
+                    return
+                
+                try:
+                    response = client.embeddings.create(input=batch_texts, model=model)
+                    # Assuming response.data is ordered and each .embedding is the vector
+                    for i, emb in zip(batch_indices, response.data):
+                        cache[keys[i]] = emb.embedding
+                except Exception as e:
+                    logger.warning(f"Error embedding batch of {len(batch_texts)} texts: {e}")
+                    if len(batch_texts) == 1:
+                        # If single text fails, log error and skip
+                        logger.error(f"Failed to embed single text at index {batch_indices[0]}: {e}")
+                        return
+                    else:
+                        # Divide batch and retry
+                        mid = len(batch_texts) // 2
+                        embed_batch_with_retry(batch_texts[:mid], batch_indices[:mid])
+                        embed_batch_with_retry(batch_texts[mid:], batch_indices[mid:])
+            
+            embed_batch_with_retry(to_embed, to_embed_idxs)
 
         # 3. Gather all embeddings (order matches input)
         embeddings = [cache[key] for key in keys]
