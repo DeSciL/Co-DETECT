@@ -62,6 +62,7 @@ async def annotate_texts(request: AnnotationRequest):
     
     round_string = f"_{request.reannotate_round}"
 
+    print(f"Processing examples: {len(request.examples)}")
     annotated_data = await process_annotation_json(
         request.examples,
         request.annotation_guideline,
