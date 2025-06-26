@@ -240,7 +240,7 @@ const PointDetails: React.FC<PointDetailsProps> = ({
     if (listElement) {
       listElement.scrollTop = 0;
     }
-  }, [sortOption, sortDirection, previousAnnotations]);
+  }, [sortOption, sortDirection]);
 
   // Memoized search handler
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {

@@ -567,9 +567,12 @@ const DualScatterPlot = ({
       event.stopPropagation();
       event.preventDefault();
       
-      if (onPointClick && selectedPoint) {
-        onPointClick(selectedPoint); // Clicking the selected point again deselects it
-      }
+      // Since users can now deselect by clicking the selected point,
+      // we can optionally still support background clicks to deselect
+      // but it's no longer necessary - comment out for cleaner UX
+      // if (onPointClick && selectedPoint) {
+      //   onPointClick(selectedPoint);
+      // }
     }
   }, [onPointClick, selectedPoint]);
 
@@ -651,12 +654,8 @@ const DualScatterPlot = ({
       .on("mouseup", function() {
         d3.select(this).style("cursor", "grab");
       })
-      .on("click", (event: MouseEvent) => {
-        // Handle background clicks to deselect points
-        if (selectedPointData) {
-          handleBackgroundClick(event);
-        }
-      });
+      // Background clicks no longer deselect points since users can
+      // click the selected point directly to deselect
 
     // Size scale function for confidence
     const getSizeFromConfidence = (confidence: number) => {
@@ -805,7 +804,7 @@ const DualScatterPlot = ({
     // Add points
     pointsContainer
       .selectAll<SVGPathElement, DataPoint>("path")
-      .data(data.filter(d => isFinite(d.pca_x) && isFinite(d.pca_y))) // Filter out invalid coordinates
+      .data(data.filter(d => d && isFinite(d.pca_x) && isFinite(d.pca_y))) // Filter out invalid coordinates
       .join("path")
       .attr("d", d => {
         const size = getSizeFromConfidence(d.confidence);
@@ -828,6 +827,8 @@ const DualScatterPlot = ({
         return colorScale(clusterValue);
       })
       .attr("class", (d) => {
+        if (!d) return styles.point;
+        
         const isHovered = hoveredPoint && (
           (hoveredPoint.uid && d.uid && hoveredPoint.uid === d.uid) || 
           (hoveredPoint.text_to_annotate === d.text_to_annotate)
@@ -843,6 +844,8 @@ const DualScatterPlot = ({
         return styles.point;
       })
       .attr("stroke", (d) => {
+        if (!d) return "#555";
+        
         const isHovered = hoveredPoint && (
           (hoveredPoint.uid && d.uid && hoveredPoint.uid === d.uid) || 
           (hoveredPoint.text_to_annotate === d.text_to_annotate)
@@ -858,6 +861,8 @@ const DualScatterPlot = ({
         return "#555"; // Light gray stroke instead of none for better definition
       })
       .attr("stroke-width", (d) => {
+        if (!d) return 0.5;
+        
         const isHovered = hoveredPoint && (
           (hoveredPoint.uid && d.uid && hoveredPoint.uid === d.uid) || 
           (hoveredPoint.text_to_annotate === d.text_to_annotate)
@@ -907,7 +912,7 @@ const DualScatterPlot = ({
         
         const element = d3.select(this);
         
-        const isSelected = selectedPointData && (
+        const isSelected = selectedPointData && d && (
           (selectedPointData.uid && d.uid && selectedPointData.uid === d.uid) || 
           (selectedPointData.text_to_annotate === d.text_to_annotate)
         );
@@ -940,6 +945,7 @@ const DualScatterPlot = ({
     if (selectedPointData) {
       const matchingElements = pointsContainer.selectAll<SVGPathElement, DataPoint>("path")
         .filter(d => {
+          if (!d) return false;
           if (selectedPointData.uid && d.uid) {
             return d.uid === selectedPointData.uid;
           }
@@ -993,6 +999,7 @@ const DualScatterPlot = ({
       
       const matchingElements = pointsContainer.selectAll<SVGPathElement, DataPoint>("path")
         .filter(d => {
+          if (!d) return false;
           if (hoveredPoint.uid && d.uid) {
             return d.uid === hoveredPoint.uid;
           }
@@ -1091,19 +1098,8 @@ const DualScatterPlot = ({
     // Apply zoom behavior to the entire SVG, ensuring zoom events are correctly captured
     svg.call(zoomRef.current)
       .on("dblclick.zoom", null) // IMPORTANT FIX: Disable double-click zoom to avoid conflicts
-      .on("click", (event: MouseEvent) => {
-        // Prevent zoom behavior on background clicks that should deselect points
-        // Only handle direct clicks on SVG background or zoom-area rect
-        const targetElement = event.target as Element;
-        const isBackgroundClick = targetElement === event.currentTarget || 
-                                targetElement.classList.contains('zoom-area');
-        
-        if (isBackgroundClick && selectedPointData) {
-          // Stop event propagation to prevent zoom conflict
-          event.stopPropagation();
-          handleBackgroundClick(event);
-        }
-      });
+      // Background clicks no longer needed for deselection since users can
+      // click the selected point directly to deselect
     
     // Restore previous zoom state
     if (currentTransform.k !== 1) {
@@ -1112,7 +1108,7 @@ const DualScatterPlot = ({
 
     // Add clickable areas to improve selectability, but ensure they don't block zoom events
     g.selectAll<SVGCircleElement, DataPoint>(".hitArea")
-      .data(data.filter(d => isFinite(d.pca_x) && isFinite(d.pca_y))) // Filter out invalid coordinates
+      .data(data.filter(d => d && isFinite(d.pca_x) && isFinite(d.pca_y))) // Filter out invalid coordinates
       .join("circle")
       .attr("class", "hitArea")
       .attr("cx", d => xScale(d.pca_x))
@@ -1284,6 +1280,8 @@ const DualScatterPlot = ({
         d3.select(topSvgRef.current)
           .selectAll<SVGPathElement, DataPoint>("path")
           .filter(d => {
+            // Add null check for d
+            if (!d) return false;
             if (topSelectedPoint.uid && d.uid) {
               return d.uid === topSelectedPoint.uid;
             }
@@ -1299,6 +1297,8 @@ const DualScatterPlot = ({
         d3.select(bottomSvgRef.current)
           .selectAll<SVGPathElement, DataPoint>("path")
           .filter(d => {
+            // Add null check for d
+            if (!d) return false;
             if (bottomSelectedPoint.uid && d.uid) {
               return d.uid === bottomSelectedPoint.uid;
             }

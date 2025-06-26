@@ -15,6 +15,7 @@ interface ClusteredPointDetailsProps {
   savedSuggestions?: Record<string, string>;
   previousAnnotations?: DataPoint[];
   onReannotate?: (point: DataPoint) => void;
+  collapseAll?: number; // Timestamp trigger for collapsing all
 }
 
 const ClusteredPointDetails: React.FC<ClusteredPointDetailsProps> = ({
@@ -26,6 +27,7 @@ const ClusteredPointDetails: React.FC<ClusteredPointDetailsProps> = ({
   savedSuggestions = {},
   previousAnnotations,
   onReannotate,
+  collapseAll,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [collapseTimestamp, setCollapseTimestamp] = useState<number>(0);
@@ -65,6 +67,13 @@ const ClusteredPointDetails: React.FC<ClusteredPointDetailsProps> = ({
   const handleCollapseAll = useCallback(() => {
     setCollapseTimestamp(Date.now());
   }, []);
+
+  // React to external collapse trigger
+  React.useEffect(() => {
+    if (collapseAll && collapseAll > collapseTimestamp) {
+      setCollapseTimestamp(collapseAll);
+    }
+  }, [collapseAll, collapseTimestamp]);
 
   // Memoized cluster entries to avoid recalculating
   const clusterEntries = useMemo(() => {
