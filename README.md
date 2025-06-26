@@ -1,5 +1,5 @@
 # Co-DETECT
-Co-DETECT: **Co**llaborative **D**iscovery of **E**dge cases in **TE**xt **C**lassifica**T**ion
+***Co-DETECT***: **Co**llaborative **D**iscovery of **E**dge cases in **TE**xt **C**lassifica**T**ion
 
 ### Environment Requirements
 
