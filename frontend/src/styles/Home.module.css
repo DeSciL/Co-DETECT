@@ -29,6 +29,21 @@
   margin-bottom: 20px;
 }
 
+.titleContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.logo {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  flex-shrink: 0;
+  transform: translateY(-2px);
+}
+
 .mainTitle {
   color: var(--text-primary);
   font-weight: 600;
@@ -215,6 +230,57 @@
   flex: 1;
   margin-right: 8px;
   word-break: break-word;
+  cursor: pointer;
+  user-select: none;
+}
+
+.criterionText:hover {
+  background-color: rgba(78, 122, 209, 0.1);
+  border-radius: 3px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+}
+
+.criterionActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.editCriterionButton {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+
+.editCriterionButton:hover {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.editingInput {
+  flex: 1;
+  margin-right: 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--primary-color);
+  border-radius: 3px;
+  font-size: 14px;
+  background-color: white;
+  outline: none;
+}
+
+.editingInput:focus {
+  box-shadow: 0 0 0 2px rgba(78, 122, 209, 0.2);
 }
 
 .removeCriterionButton {
@@ -245,6 +311,68 @@
 .removeCriterionButton:disabled {
   color: #d9d9d9;
   cursor: not-allowed;
+}
+
+.saveButton {
+  background: none;
+  border: none;
+  color: #059669;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  min-height: 20px;
+}
+
+.saveButton:hover {
+  color: white;
+  background-color: #059669;
+}
+
+.saveButton:active {
+  background-color: #047857;
+}
+
+.saveButton:disabled {
+  color: #d9d9d9;
+  cursor: not-allowed;
+}
+
+.saveButton:disabled:hover {
+  color: #d9d9d9;
+  background-color: transparent;
+}
+
+.cancelButton {
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  min-height: 20px;
+}
+
+.cancelButton:hover {
+  color: white;
+  background-color: #6b7280;
+}
+
+.cancelButton:active {
+  background-color: #4b5563;
 }
 
 .addCriterionContainer {
@@ -581,6 +709,16 @@
     padding: 24px;
   }
   
+  .titleContainer {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .logo {
+    width: 40px;
+    height: 40px;
+  }
+
   .mainTitle {
     font-size: 24px;
   }
@@ -618,5 +756,14 @@
   
   .inputSection, .contentInputArea {
     padding: 12px;
+  }
+
+  .logo {
+    width: 36px;
+    height: 36px;
+  }
+
+  .mainTitle {
+    font-size: 20px;
   }
 } 

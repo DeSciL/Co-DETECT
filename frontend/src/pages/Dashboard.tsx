@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { message, Tooltip } from "antd";
+import { message, Tooltip, Input } from "antd";
 import {
   CaretRightOutlined,
   CaretDownOutlined,
   DownOutlined,
-  PlusOutlined,
+  EditOutlined,
+  CheckOutlined,
+  CloseOutlined,
 } from "@ant-design/icons";
 import DualScatterPlot from "../components/DualScatterPlot";
 import PointDetails from "../components/PointDetails";
@@ -63,6 +65,14 @@ const Dashboard = () => {
   const [showAddExampleModal, setShowAddExampleModal] = useState(false);
   const [newExampleText, setNewExampleText] = useState("");
   const [isReannotation, setIsReannotation] = useState(false);
+  const [addExamplePreviewContent, setAddExamplePreviewContent] = useState("");
+  const [editingLabelIndex, setEditingLabelIndex] = useState<number | null>(null);
+  const [editingLabelValue, setEditingLabelValue] = useState("");
+  const [collapseAllTimestamp, setCollapseAllTimestamp] = useState<number>(0);
+
+  // Refs for performance optimization
+  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSelectedPointRef = useRef<DataPoint | null>(null);
 
   const navigate = useNavigate();
 
@@ -163,44 +173,116 @@ const Dashboard = () => {
   useEffect(() => {
     return () => {
       dataManager.cleanup();
+      // Clear any pending timeouts
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current);
+      }
     };
   }, []);
 
-  // Memoized functions to prevent unnecessary re-renders
+  // Memoized helper functions for checking point data source
+  const isPointFromAnnotations = useCallback((point: DataPoint) => {
+    return annotations?.some(item => 
+      (item.uid && point.uid && item.uid === point.uid) ||
+      item.text_to_annotate === point.text_to_annotate
+    ) || false;
+  }, [annotations]);
+
+  const isPointFromImprovementClusters = useCallback((point: DataPoint) => {
+    return improvementClusters?.some(item => 
+      (item.uid && point.uid && item.uid === point.uid) ||
+      item.text_to_annotate === point.text_to_annotate
+    ) || false;
+  }, [improvementClusters]);
+
+  // Optimized point comparison function
+  const isSamePoint = useCallback((point1: DataPoint | null, point2: DataPoint) => {
+    if (!point1) return false;
+    return (point1.uid && point2.uid && point1.uid === point2.uid) ||
+           point1.text_to_annotate === point2.text_to_annotate;
+  }, []);
+
+  // Optimized point selection handler with debouncing
   const handlePointSelect = useCallback(
     (point: DataPoint) => {
-      if (!selectionsEnabled) return;
-
-      setSelectionsEnabled(false);
-
-      const isSamePoint =
-        selectedPoint &&
-        ((selectedPoint.uid && point.uid && selectedPoint.uid === point.uid) ||
-          selectedPoint.text_to_annotate === point.text_to_annotate);
-
-      dispatch({
-        type: "SET_SELECTED_POINT",
-        payload: isSamePoint ? null : point,
-      });
-
-      // Check if the selected point is from improvementClusters data
-      // If so, automatically expand the Suggested Edge Cases section
-      if (!isSamePoint && point && improvementClusters && improvementClusters.length > 0) {
-        const isFromImprovementClusters = improvementClusters.some(item => 
-          (item.uid && point.uid && item.uid === point.uid) ||
-          item.text_to_annotate === point.text_to_annotate
-        );
-        
-        if (isFromImprovementClusters && !isImprovementsExpanded) {
-          setIsImprovementsExpanded(true);
-        }
+      // Clear any pending click timeout
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current);
       }
 
-      setTimeout(() => {
-        setSelectionsEnabled(true);
-      }, 100);
+      // Debounce rapid clicks
+      clickTimeoutRef.current = setTimeout(() => {
+        if (!selectionsEnabled) return;
+
+        const isSamePointSelected = isSamePoint(selectedPoint, point);
+        const isSameAsLast = isSamePoint(lastSelectedPointRef.current, point);
+
+        // If clicking the same point that's already selected, deselect it
+        if (isSamePointSelected || isSameAsLast) {
+          // Update refs
+          lastSelectedPointRef.current = null;
+          
+          // Deselect the point
+          dispatch({
+            type: "SET_SELECTED_POINT",
+            payload: null,
+          });
+          
+          // Temporarily disable selections to prevent rapid clicks
+          setSelectionsEnabled(false);
+          setTimeout(() => {
+            setSelectionsEnabled(true);
+          }, 150);
+          
+          return;
+        }
+
+        // Update refs
+        lastSelectedPointRef.current = point;
+
+        // Batch state updates to reduce re-renders
+        const updates: (() => void)[] = [];
+
+        // Always update selected point for different points
+        updates.push(() => {
+          dispatch({
+            type: "SET_SELECTED_POINT",
+            payload: point,
+          });
+        });
+
+        // Auto-expand sections only if needed
+        const fromAnnotations = isPointFromAnnotations(point);
+        const fromImprovements = isPointFromImprovementClusters(point);
+
+        if (fromAnnotations && !isExamplesExpanded) {
+          updates.push(() => setIsExamplesExpanded(true));
+        }
+
+        if (fromImprovements && !isImprovementsExpanded) {
+          updates.push(() => setIsImprovementsExpanded(true));
+        }
+
+        // Execute all updates
+        updates.forEach(update => update());
+
+        // Temporarily disable selections to prevent rapid clicks
+        setSelectionsEnabled(false);
+        setTimeout(() => {
+          setSelectionsEnabled(true);
+        }, 150); // Slightly longer delay for better UX
+      }, 50); // 50ms debounce
     },
-    [selectionsEnabled, selectedPoint, dispatch, improvementClusters, isImprovementsExpanded]
+    [
+      selectionsEnabled, 
+      selectedPoint, 
+      dispatch, 
+      isExamplesExpanded, 
+      isImprovementsExpanded,
+      isPointFromAnnotations,
+      isPointFromImprovementClusters,
+      isSamePoint
+    ]
   );
 
   const handleBack = useCallback(async () => {
@@ -227,42 +309,8 @@ const Dashboard = () => {
         return;
       }
 
-      // Get current annotation guideline
-      const currentGuideline = requestBody.annotation_guideline;
-      let task = "";
-      let labels: string[] = [];
-
-      // Parse the current guideline (now always string format)
-      const lines = currentGuideline.split("\n");
-      task = lines[0].trim();
-      labels = lines
-        .filter((line) => line.trim().startsWith("-"))
-        .map((line) => line.trim().substring(1).trim());
-
-      // Add saved suggestions to the guideline
-      const savedSuggestionsText = Object.entries(savedSuggestions)
-        .map(([, suggestion], index) => `${index + 1}. ${suggestion}`)
-        .join("\n");
-
-      // Extract the main task description (first line)
-      const mainTask = task.split('\n')[0];
-      
-      // Filter labels to only include actual labels (typically short ones with numbers or simple descriptions)
-      // Exclude long descriptive criteria
-      const actualLabels = labels.filter(label => 
-        // Keep labels that are short (like "0 (the post contains no hate speech)") 
-        // or don't contain "Does the post" (which indicates they're criteria descriptions)
-        label.length < 100 && !label.includes("Does the post")
-      );
-      
-      // Build the detailed guidelines format for preview
-      let combinedGuidelineString = `${mainTask}\n\nA post contains hate speech if it contains any of the following aspects:\n- Assaults on Human Dignity: Does the post demean or degrade individuals or groups based on race, ethnicity, gender, religion, sexual orientation, or other protected characteristics?\n- Calls for Violence: Does the post incite or encourage physical harm or violence against individuals or groups?\n- Vulgarity and/or Offensive Language: Does the post contain profanity, slurs, or other offensive language that may or may not be directed at individuals or groups?\n\nLabels:\n${actualLabels
-        .map((label) => `- ${label}`)
-        .join("\n")}`;
-
-      if (savedSuggestionsText.trim()) {
-        combinedGuidelineString += `\n\nEdge Case Handling:\n${savedSuggestionsText}`;
-      }
+      // Get the complete guideline content (current guidelines + edge case handling)
+      const combinedGuidelineString = prepareCompleteGuideline();
 
       setIteratePreviewContent(combinedGuidelineString);
       setShowIterateModal(true);
@@ -400,46 +448,8 @@ const Dashboard = () => {
       }
 
       // Original API-based iteration logic for non-demo mode
-      // Get current annotation guideline
-      const currentGuideline = currentData.requestData.annotation_guideline;
-      let task = "";
-      let labels: string[] = [];
-
-      // Parse the current guideline (now always string format)
-      const lines = currentGuideline.split("\n");
-      // First line is the task (no "Task Description:" prefix)
-      task = lines[0].trim();
-      labels = lines
-        .filter((line) => line.trim().startsWith("-"))
-        .map((line) => line.trim().substring(1).trim());
-
-      // Add saved suggestions to the guideline only for API requests
-      const savedSuggestionsText = Object.entries(savedSuggestions)
-        .map(([, suggestion], index) => {
-          return `${index + 1}. ${suggestion}`;
-        })
-        .join("\n");
-
-      // Create combined guideline string only for API requests
-      // Extract the main task description (first line)
-      const mainTask = task.split('\n')[0];
-      
-      // Filter labels to only include actual labels (typically short ones with numbers or simple descriptions)
-      // Exclude long descriptive criteria
-      const actualLabels = labels.filter(label => 
-        // Keep labels that are short (like "0 (the post contains no hate speech)") 
-        // or don't contain "Does the post" (which indicates they're criteria descriptions)
-        label.length < 100 && !label.includes("Does the post")
-      );
-      
-      // Build the detailed guidelines format
-      let combinedGuidelineString = `${mainTask}\n\nA post contains hate speech if it contains any of the following aspects:\n- Assaults on Human Dignity: Does the post demean or degrade individuals or groups based on race, ethnicity, gender, religion, sexual orientation, or other protected characteristics?\n- Calls for Violence: Does the post incite or encourage physical harm or violence against individuals or groups?\n- Vulgarity and/or Offensive Language: Does the post contain profanity, slurs, or other offensive language that may or may not be directed at individuals or groups?\n\nLabels:\n${actualLabels
-        .map((label) => `- ${label}`)
-        .join("\n")}`;
-
-      if (savedSuggestionsText.trim()) {
-        combinedGuidelineString += `\n\nEdge Case Handling:\n${savedSuggestionsText}`;
-      }
+      // Get the complete guideline content (current guidelines + edge case handling)
+      const combinedGuidelineString = prepareCompleteGuideline();
 
 
 
@@ -590,6 +600,23 @@ const Dashboard = () => {
   // Handler for saving a suggestion
   const handleSaveSuggestion = useCallback(
     async (clusterNumber: number, suggestion: string) => {
+      // Check if this exact suggestion already exists
+      const existingSuggestion = savedSuggestions[clusterNumber];
+      if (existingSuggestion === suggestion) {
+        message.info("This suggestion is already saved");
+        return;
+      }
+
+      // Check if the same suggestion content exists with different cluster number
+      const duplicateExists = Object.values(savedSuggestions).some(
+        existingSuggestion => existingSuggestion.trim() === suggestion.trim()
+      );
+
+      if (duplicateExists) {
+        message.warning("A similar suggestion already exists in your saved rules");
+        return;
+      }
+
       const newSuggestions = {
         ...savedSuggestions,
         [clusterNumber]: suggestion,
@@ -601,6 +628,8 @@ const Dashboard = () => {
 
         // Update state
         dispatch({ type: "SET_SAVED_SUGGESTIONS", payload: newSuggestions });
+        
+        message.success("Successfully saved edge case handling rule");
       } catch (error) {
         console.error("Failed to save suggestions:", error);
         message.error("Failed to save suggestions");
@@ -663,11 +692,26 @@ const Dashboard = () => {
     }
 
     try {
-      // Merge current saved suggestions with all available suggestions
-      const newSuggestions = {
-        ...savedSuggestions,
-        ...suggestions,
-      };
+      // Convert suggestion keys to numeric cluster numbers to match the format expected by ClusteredPointDetails
+      // suggestions has keys like "edge_case_0", "edge_case_1", etc.
+      // savedSuggestions should have keys like 0, 1, 2, etc. (numeric cluster numbers)
+      const newSuggestions: Record<string, string> = {};
+      
+      Object.entries(suggestions).forEach(([key, value]) => {
+        // Extract numeric part from keys like "edge_case_0" -> 0
+        const match = key.match(/edge_case_(\d+)/);
+        if (match) {
+          const clusterNumber = parseInt(match[1]);
+          newSuggestions[clusterNumber] = value;
+        } else {
+          // Fallback: try to extract any number from the key
+          const numMatch = key.match(/\d+/);
+          if (numMatch) {
+            const clusterNumber = parseInt(numMatch[0]);
+            newSuggestions[clusterNumber] = value;
+          }
+        }
+      });
 
       // Save to storage using dataManager
       await dataManager.saveData({ savedSuggestions: newSuggestions });
@@ -675,14 +719,13 @@ const Dashboard = () => {
       // Update state
       dispatch({ type: "SET_SAVED_SUGGESTIONS", payload: newSuggestions });
       
-      const addedCount = Object.keys(suggestions).filter(
-        key => !savedSuggestions[Number(key)]
-      ).length;
+      const totalCount = Object.keys(newSuggestions).length;
+      const previousCount = Object.keys(savedSuggestions).length;
       
-      if (addedCount > 0) {
-        message.success(`Successfully saved ${addedCount} suggestion${addedCount > 1 ? 's' : ''}`);
+      if (previousCount > 0) {
+        message.success(`Successfully replaced ${previousCount} previous suggestions with ${totalCount} new suggestions`);
       } else {
-        message.info("All suggestions are already saved");
+        message.success(`Successfully saved ${totalCount} suggestion${totalCount > 1 ? 's' : ''}`);
       }
     } catch (error) {
       console.error("Failed to save all suggestions:", error);
@@ -690,19 +733,108 @@ const Dashboard = () => {
     }
   }, [suggestions, savedSuggestions, dispatch]);
 
+  // Helper function to prepare the complete guideline content for API requests
+  const prepareCompleteGuideline = useCallback(() => {
+    if (!requestBody?.annotation_guideline) return "";
+
+    // Get current annotation guideline
+    const currentGuideline = requestBody.annotation_guideline;
+
+    // Add saved suggestions to the guideline
+    const savedSuggestionsText = Object.entries(savedSuggestions)
+      .map(([, suggestion], index) => `${index + 1}. ${suggestion}`)
+      .join("\n");
+
+    // Use the current guideline as the base (which already contains the user's task description)
+    let combinedGuidelineString = currentGuideline.trim();
+
+    if (savedSuggestionsText.trim()) {
+      combinedGuidelineString += `\n\nEdge Case Handling:\n${savedSuggestionsText}`;
+    }
+
+    return combinedGuidelineString;
+  }, [requestBody?.annotation_guideline, savedSuggestions]);
+
+  // Handler for downloading guidelines as txt file
+  const handleDownloadGuidelines = useCallback(() => {
+    if (!requestBody?.annotation_guideline) {
+      message.error("No guidelines available to download");
+      return;
+    }
+
+    const completeGuideline = prepareCompleteGuideline();
+    const blob = new Blob([completeGuideline], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `annotation_guidelines_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    message.success("Guidelines downloaded successfully");
+  }, [requestBody?.annotation_guideline, prepareCompleteGuideline]);
+
+  // Handler for downloading annotation data as JSON file
+  const handleDownloadData = useCallback(() => {
+    if (!annotations || annotations.length === 0) {
+      message.error("No annotation data available to download");
+      return;
+    }
+
+    try {
+      // Prepare the data object with all relevant information
+      const dataToDownload = {
+        metadata: {
+          task_id: requestBody?.task_id,
+          annotation_guideline: requestBody?.annotation_guideline,
+          reannotate_round: requestBody?.reannotate_round,
+          download_timestamp: new Date().toISOString(),
+          total_annotations: annotations.length,
+          total_improvement_clusters: improvementClusters?.length || 0,
+        },
+        annotations: annotations,
+        improvement_clusters: improvementClusters || [],
+        suggestions: suggestions || {},
+        saved_suggestions: savedSuggestions || {},
+        previous_annotations: previousAnnotations || [],
+        previous_guidelines: previousGuidelines || [],
+      };
+
+      const jsonString = JSON.stringify(dataToDownload, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `annotation_data_${requestBody?.task_id || 'export'}_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      message.success("Annotation data downloaded successfully");
+    } catch (error) {
+      console.error("Error downloading data:", error);
+      message.error("Failed to download annotation data");
+    }
+  }, [annotations, improvementClusters, suggestions, savedSuggestions, previousAnnotations, previousGuidelines, requestBody]);
+
   // Handler for adding a new example through manual input
   const handleShowAddExampleModal = useCallback(() => {
     setIsReannotation(false);
     setNewExampleText("");
+    setAddExamplePreviewContent(prepareCompleteGuideline());
     setShowAddExampleModal(true);
-  }, []);
+  }, [prepareCompleteGuideline]);
 
   // Handler for re-annotating an existing example
   const handleReannotateExample = useCallback((point: DataPoint) => {
     setIsReannotation(true);
     setNewExampleText(point.text_to_annotate);
+    setAddExamplePreviewContent(prepareCompleteGuideline());
     setShowAddExampleModal(true);
-  }, []);
+  }, [prepareCompleteGuideline]);
 
   // Handler for confirming add example (calls API)
   const handleConfirmAddExample = useCallback(async () => {
@@ -757,9 +889,12 @@ const Dashboard = () => {
         finalCurrentRound: currentRound,
       });
       
+      // Use the complete guideline content (same as what's shown in the modal)
+      const completeGuideline = prepareCompleteGuideline();
+      
       const annotationRequest: AnnotationRequest = {
         examples: [newExampleText.trim()],
-        annotation_guideline: requestBody.annotation_guideline,
+        annotation_guideline: completeGuideline,
         task_id: originalTaskId,
         reannotate_round: currentRound,
       };
@@ -911,8 +1046,44 @@ const Dashboard = () => {
     [annotations, dispatch]
   );
 
-  // Use improvement_clusters as the complaints data
-  const complaintsData = improvementClusters;
+  // Helper function to parse task from annotation_guideline
+  const getTaskFromGuideline = useCallback((guideline: string): string => {
+    // Split by "Labels:" and take everything before it as task description
+    const parts = guideline.split(/\nLabels:\n/);
+    return parts[0]?.trim() || "";
+  }, []);
+
+  // Helper function to parse labels from annotation_guideline
+  const getLabelsFromGuideline = useCallback((guideline: string): string[] => {
+    // Split by "Labels:" and only parse lines after it
+    const parts = guideline.split(/\nLabels:\n/);
+    if (parts.length < 2) return [];
+    
+    const labelsSection = parts[1];
+    return labelsSection
+      .split("\n")
+      .filter((line) => line.trim().startsWith("-"))
+      .map((line) => line.trim().substring(1).trim())
+      .filter((label) => label.length > 0);
+  }, []);
+
+  // Memoized computed values to prevent unnecessary re-renders
+  const complaintsData = useMemo(() => improvementClusters, [improvementClusters]);
+  
+  // Memoize task and labels extraction to prevent repeated parsing
+  const taskDescription = useMemo(() => {
+    return requestBody?.annotation_guideline 
+      ? getTaskFromGuideline(requestBody.annotation_guideline)
+      : "";
+  }, [requestBody?.annotation_guideline, getTaskFromGuideline]);
+
+  const currentLabels = useMemo(() => {
+    return requestBody?.annotation_guideline 
+      ? getLabelsFromGuideline(requestBody.annotation_guideline)
+      : [];
+  }, [requestBody?.annotation_guideline, getLabelsFromGuideline]);
+
+
 
   // Function to add a new label
   const handleAddLabel = useCallback(() => {
@@ -987,6 +1158,107 @@ const Dashboard = () => {
     }
   };
 
+  // Start editing a label
+  const handleStartEditLabel = useCallback((index: number) => {
+    if (!requestBody) return;
+    const labels = getLabelsFromGuideline(requestBody.annotation_guideline);
+    console.log('📝 [EDIT LABEL DEBUG] Starting edit:', {
+      index,
+      labels,
+      selectedLabel: labels[index],
+      guideline: requestBody.annotation_guideline
+    });
+    setEditingLabelIndex(index);
+    setEditingLabelValue(labels[index] || "");
+  }, [requestBody]);
+
+  // Save edited label
+  const handleSaveEditLabel = useCallback((e?: React.MouseEvent | React.KeyboardEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+
+    console.log('💾 [SAVE LABEL DEBUG] Attempting to save:', {
+      requestBody: !!requestBody,
+      editingLabelIndex,
+      editingLabelValue,
+      trimmedValue: editingLabelValue.trim()
+    });
+
+    if (!requestBody || editingLabelIndex === null || !editingLabelValue.trim()) {
+      console.log('💾 [SAVE LABEL DEBUG] Save cancelled - invalid data');
+      setEditingLabelIndex(null);
+      setEditingLabelValue("");
+      return;
+    }
+
+    const task = getTaskFromGuideline(requestBody.annotation_guideline);
+    const labels = getLabelsFromGuideline(requestBody.annotation_guideline);
+    const newLabels = [...labels];
+    newLabels[editingLabelIndex] = editingLabelValue.trim();
+
+    console.log('💾 [SAVE LABEL DEBUG] Updating labels:', {
+      oldLabels: labels,
+      newLabels,
+      editIndex: editingLabelIndex,
+      newValue: editingLabelValue.trim()
+    });
+
+    // Create new guideline string with updated label
+    const newGuidelineString = `${task}\n\nLabels:\n${newLabels.map(l => `- ${l}`).join('\n')}\n`;
+
+    const updatedRequestBody: AnnotationRequest = {
+      ...requestBody,
+      annotation_guideline: newGuidelineString,
+    };
+
+    // Save to storage and update state
+    try {
+      const updatedData = {
+        examples: updatedRequestBody.examples,
+        annotation_guideline: updatedRequestBody.annotation_guideline,
+        task_id: updatedRequestBody.task_id,
+        reannotate_round: updatedRequestBody.reannotate_round,
+        uploadMethod: ((
+          requestBody as AnnotationRequest & { uploadMethod?: string }
+        ).uploadMethod || "paste") as "paste" | "upload",
+      };
+      dataManager.saveData({ requestData: updatedData });
+      dispatch({ type: "SET_REQUEST_BODY", payload: updatedRequestBody });
+      console.log('💾 [SAVE LABEL DEBUG] Successfully saved label');
+    } catch (error) {
+      console.error("Failed to update label:", error);
+      message.error("Failed to update label");
+    }
+
+    setEditingLabelIndex(null);
+    setEditingLabelValue("");
+  }, [requestBody, editingLabelIndex, editingLabelValue, dispatch]);
+
+  // Cancel editing label
+  const handleCancelEditLabel = useCallback((e?: React.MouseEvent | React.KeyboardEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    console.log('❌ [CANCEL LABEL DEBUG] Cancelling edit:', {
+      editingLabelIndex,
+      editingLabelValue
+    });
+    setEditingLabelIndex(null);
+    setEditingLabelValue("");
+  }, [editingLabelIndex, editingLabelValue]);
+
+  // Handle keyboard events for label editing
+  const handleLabelKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSaveEditLabel(e);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelEditLabel(e);
+    }
+  }, [handleSaveEditLabel, handleCancelEditLabel]);
+
   // Function to update task description
   const handleUpdateTask = useCallback((newTask: string) => {
     if (!requestBody) return;
@@ -1021,33 +1293,42 @@ const Dashboard = () => {
     }
   }, [requestBody, dispatch]);
 
-  // Helper function to parse task from annotation_guideline
-  const getTaskFromGuideline = (guideline: string): string => {
-    // Split by "Labels:" and take everything before it as task description
-    const parts = guideline.split(/\nLabels:\n/);
-    return parts[0]?.trim() || "";
-  };
 
-  // Helper function to parse labels from annotation_guideline
-  const getLabelsFromGuideline = (guideline: string): string[] => {
-    // Split by "Labels:" and only parse lines after it
-    const parts = guideline.split(/\nLabels:\n/);
-    if (parts.length < 2) return [];
-    
-    const labelsSection = parts[1];
-    return labelsSection
-      .split("\n")
-      .filter((line) => line.trim().startsWith("-"))
-      .map((line) => line.trim().substring(1).trim())
-      .filter((label) => label.length > 0);
-  };
 
-  // Function to toggle previous guideline expansion
+  // Optimized toggle functions with minimal re-renders
   const togglePreviousGuideline = useCallback((index: number) => {
-    setExpandedPreviousGuidelines((prev) => ({
-      ...prev,
-      [index]: !prev[index],
-    }));
+    setExpandedPreviousGuidelines((prev) => {
+      const isCurrentlyExpanded = prev[index];
+      // Only update if state actually changes
+      if (isCurrentlyExpanded === undefined || isCurrentlyExpanded === false) {
+        return { ...prev, [index]: true };
+      } else {
+        const newState = { ...prev };
+        delete newState[index]; // Remove from object to save memory
+        return newState;
+      }
+    });
+  }, []);
+
+  // Memoized section toggle handlers to prevent unnecessary re-renders
+  const toggleGuidelineExpanded = useCallback(() => {
+    setIsGuidelineExpanded(prev => !prev);
+  }, []);
+
+  const togglePreviousGuidelineExpanded = useCallback(() => {
+    setIsPreviousGuidelineExpanded(prev => !prev);
+  }, []);
+
+  const toggleSummaryExpanded = useCallback(() => {
+    setIsSummaryExpanded(prev => !prev);
+  }, []);
+
+  const toggleExamplesExpanded = useCallback(() => {
+    setIsExamplesExpanded(prev => !prev);
+  }, []);
+
+  const toggleImprovementsExpanded = useCallback(() => {
+    setIsImprovementsExpanded(prev => !prev);
   }, []);
 
   // Add resize handlers
@@ -1161,6 +1442,7 @@ const Dashboard = () => {
           setShowAddExampleModal(false);
           setNewExampleText("");
           setIsReannotation(false);
+          setAddExamplePreviewContent("");
         }}
         title={isReannotation ? "Re-annotate Example" : "Add New Example"}
         onConfirm={handleConfirmAddExample}
@@ -1170,16 +1452,19 @@ const Dashboard = () => {
         <div className={styles.modalIntroText}>
           <p className={styles.modalMainText}>
             {isReannotation 
-              ? "Re-annotate this example using the current guidelines."
-              : "Enter a new text example to be annotated and added to the dataset."
+              ? "Re-annotate this example using the following annotation guidelines:"
+              : "Enter a new text example to be annotated using the following annotation guidelines:"
             }
           </p>
           <p className={styles.modalSubText}>
             {isReannotation
               ? "This example will be sent to the annotation API and re-annotated using the current guidelines. The result will replace the existing annotation."
-              : "This example will be sent to the annotation API and automatically annotated using the current guidelines, then added to the scatter plot visualization."
+              : "This example will be sent to the annotation API and collaboratively annotated using the current guidelines, then added to the scatter plot visualization."
             }
           </p>
+        </div>
+        <div className={styles.modalPreviewContent}>
+          {addExamplePreviewContent}
         </div>
         <div className={styles.addExampleForm}>
           <label htmlFor="newExampleInput" className={styles.formLabel}>
@@ -1225,17 +1510,13 @@ const Dashboard = () => {
                 <CaretDownOutlined
                   className={styles.expandIcon}
                   style={{ fontSize: "14px", marginRight: "8px" }}
-                  onClick={() =>
-                    setIsPreviousGuidelineExpanded(!isPreviousGuidelineExpanded)
-                  }
+                  onClick={togglePreviousGuidelineExpanded}
                 />
               ) : (
                 <CaretRightOutlined
                   className={styles.expandIcon}
                   style={{ fontSize: "14px", marginRight: "8px" }}
-                  onClick={() =>
-                    setIsPreviousGuidelineExpanded(!isPreviousGuidelineExpanded)
-                  }
+                  onClick={togglePreviousGuidelineExpanded}
                 />
               )}
               <h2>Previous Guidelines</h2>
@@ -1293,16 +1574,30 @@ const Dashboard = () => {
                 <CaretDownOutlined
                   className={styles.expandIcon}
                   style={{ fontSize: "14px", marginRight: "8px" }}
-                  onClick={() => setIsGuidelineExpanded(!isGuidelineExpanded)}
+                  onClick={toggleGuidelineExpanded}
                 />
               ) : (
                 <CaretRightOutlined
                   className={styles.expandIcon}
                   style={{ fontSize: "14px", marginRight: "8px" }}
-                  onClick={() => setIsGuidelineExpanded(!isGuidelineExpanded)}
+                  onClick={toggleGuidelineExpanded}
                 />
               )}
               <h2>Current Guidelines</h2>
+              <div className={styles.headerActions}>
+                <Tooltip title="Download current guidelines as text file">
+                  <button
+                    className={styles.resetButton}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownloadGuidelines();
+                    }}
+                    aria-label="Download guidelines"
+                  >
+                    Download
+                  </button>
+                </Tooltip>
+              </div>
             </div>
             {isGuidelineExpanded && (
               <div className={styles.guidelinesContent}>
@@ -1311,11 +1606,7 @@ const Dashboard = () => {
                     <h3 className={styles.guidelineHeader}>Task Description</h3>
                     <textarea
                       className={styles.taskInput}
-                      value={
-                        requestBody?.annotation_guideline
-                          ? getTaskFromGuideline(requestBody.annotation_guideline)
-                          : ""
-                      }
+                      value={taskDescription}
                       onChange={(e) => {
                         handleUpdateTask(e.target.value);
                       }}
@@ -1323,19 +1614,68 @@ const Dashboard = () => {
 
                     <h3 className={styles.guidelineHeader}>Labels</h3>
                     <div className={styles.criteriaList}>
-                      {(requestBody?.annotation_guideline
-                        ? getLabelsFromGuideline(requestBody.annotation_guideline)
-                        : []
-                      ).map((label: string, index: number) => (
+                      {currentLabels.map((label: string, index: number) => (
                         <div key={index} className={styles.criterionItem}>
-                          <span>{label}</span>
-                          <button
-                            className={styles.removeCriterionButton}
-                            onClick={() => handleRemoveLabel(index)}
-                            aria-label="Remove label"
-                          >
-                            ×
-                          </button>
+                          {editingLabelIndex === index ? (
+                            <Input
+                              value={editingLabelValue}
+                              onChange={(e) => setEditingLabelValue(e.target.value)}
+                              onKeyDown={handleLabelKeyDown}
+                              autoFocus
+                              className={styles.criterionInput}
+                            />
+                          ) : (
+                            <span 
+                              onDoubleClick={() => handleStartEditLabel(index)}
+                              title="Double-click to edit"
+                              style={{ cursor: 'pointer' }}
+                            >
+                              {label}
+                            </span>
+                          )}
+                          <div className={styles.criterionActions}>
+                            {editingLabelIndex === index ? (
+                              <>
+                                <Tooltip title="Save changes (Enter)">
+                                  <button
+                                    className={styles.saveButton}
+                                    onClick={handleSaveEditLabel}
+                                    aria-label="Save changes"
+                                    disabled={editingLabelValue.trim() === ""}
+                                  >
+                                    <CheckOutlined style={{ fontSize: '12px' }} />
+                                  </button>
+                                </Tooltip>
+                                <Tooltip title="Cancel editing (Esc)">
+                                  <button
+                                    className={styles.cancelButton}
+                                    onClick={handleCancelEditLabel}
+                                    aria-label="Cancel editing"
+                                  >
+                                    <CloseOutlined style={{ fontSize: '12px' }} />
+                                  </button>
+                                </Tooltip>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  className={styles.editCriterionButton}
+                                  onClick={() => handleStartEditLabel(index)}
+                                  aria-label="Edit label"
+                                  title="Edit label"
+                                >
+                                  <EditOutlined style={{ fontSize: '12px' }} />
+                                </button>
+                                <button
+                                  className={styles.removeCriterionButton}
+                                  onClick={() => handleRemoveLabel(index)}
+                                  aria-label="Remove label"
+                                >
+                                  ×
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1381,13 +1721,13 @@ const Dashboard = () => {
                 <CaretDownOutlined
                   className={styles.expandIcon}
                   style={{ fontSize: "14px", marginRight: "8px" }}
-                  onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
+                  onClick={toggleSummaryExpanded}
                 />
               ) : (
                 <CaretRightOutlined
                   className={styles.expandIcon}
                   style={{ fontSize: "14px", marginRight: "8px" }}
-                  onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
+                  onClick={toggleSummaryExpanded}
                 />
               )}
               <h2>Edge Case Handling</h2>
@@ -1414,10 +1754,23 @@ const Dashboard = () => {
           <div className={styles.resizeIcon}>≡</div>
         </div>
         <div className={styles.panelHeader}>
-          <button className={styles.backButton} onClick={handleBack}>
-            Edit Inputs
-          </button>
+          <Tooltip title="Return to the home page to modify your annotation guidelines or upload new data">
+            <button className={styles.backButton} onClick={handleBack}>
+              Edit Inputs
+            </button>
+          </Tooltip>
           <h2>Cluster Analysis</h2>
+          <div className={styles.headerActions}>
+            <Tooltip title="Download current annotation data as JSON file">
+              <button
+                className={styles.resetButton}
+                onClick={handleDownloadData}
+                aria-label="Download annotation data"
+              >
+                Download
+              </button>
+            </Tooltip>
+          </div>
         </div>
         <div className={styles.scatterPlotContainer} data-tour="scatter-plot">
           <div
@@ -1525,27 +1878,28 @@ const Dashboard = () => {
                 <CaretDownOutlined
                   className={styles.expandIcon}
                   style={{ fontSize: "14px", marginRight: "8px" }}
-                  onClick={() => setIsExamplesExpanded(!isExamplesExpanded)}
+                  onClick={toggleExamplesExpanded}
                 />
               ) : (
                 <CaretRightOutlined
                   className={styles.expandIcon}
                   style={{ fontSize: "14px", marginRight: "8px" }}
-                  onClick={() => setIsExamplesExpanded(!isExamplesExpanded)}
+                  onClick={toggleExamplesExpanded}
                 />
               )}
               <h2>All Examples</h2>
               <div className={styles.headerActions}>
                 <Tooltip title="Add new example for annotation">
                   <button
-                    className={styles.addExampleButton}
+                    className={styles.iterateButton}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleShowAddExampleModal();
                     }}
                     aria-label="Add new example"
+                    data-tour="annotate-new-button"
                   >
-                    <PlusOutlined style={{ fontSize: "14px" }} />
+                    Annotate new
                   </button>
                 </Tooltip>
               </div>
@@ -1576,48 +1930,52 @@ const Dashboard = () => {
                 <CaretDownOutlined
                   className={styles.expandIcon}
                   style={{ fontSize: "14px", marginRight: "8px" }}
-                  onClick={() =>
-                    setIsImprovementsExpanded(!isImprovementsExpanded)
-                  }
+                  onClick={toggleImprovementsExpanded}
                 />
               ) : (
                 <CaretRightOutlined
                   className={styles.expandIcon}
                   style={{ fontSize: "14px", marginRight: "8px" }}
-                  onClick={() =>
-                    setIsImprovementsExpanded(!isImprovementsExpanded)
-                  }
+                  onClick={toggleImprovementsExpanded}
                 />
               )}
               <h2>Suggested Edge Cases</h2>
               <div className={styles.headerActions}>
-                <button
-                  className={styles.resetButton}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSaveAllSuggestions();
-                  }}
-                  aria-label="Save all suggestions"
-                  onMouseDown={(e) => e.preventDefault()}
-                >
-                  Add All
-                </button>
-                <button
-                  className={styles.resetButton}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const collapseButton = document.querySelector(
-                      ".improvementCollapseButton"
-                    );
-                    if (collapseButton) {
-                      (collapseButton as HTMLButtonElement).click();
-                    }
-                  }}
-                  aria-label="Collapse all clusters"
-                  onMouseDown={(e) => e.preventDefault()}
-                >
-                  Collapse All
-                </button>
+                <Tooltip title="Add all edge case handling suggestions to your saved rules">
+                  <button
+                    className={styles.resetButton}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSaveAllSuggestions();
+                    }}
+                    aria-label="Save all suggestions"
+                    onMouseDown={(e) => e.preventDefault()}
+                    data-tour="add-all-button"
+                  >
+                    Add All
+                  </button>
+                </Tooltip>
+                <Tooltip title="Collapse all expanded cluster details">
+                  <button
+                    className={styles.resetButton}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Clear selected point to collapse all expanded items
+                      dispatch({
+                        type: "SET_SELECTED_POINT",
+                        payload: null,
+                      });
+                      // Also update the ref to keep it in sync
+                      lastSelectedPointRef.current = null;
+                      // Trigger collapse all in ClusteredPointDetails
+                      setCollapseAllTimestamp(Date.now());
+                    }}
+                    aria-label="Collapse all clusters"
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
+                    Collapse All
+                  </button>
+                </Tooltip>
               </div>
             </div>
             {isImprovementsExpanded && (
@@ -1631,6 +1989,7 @@ const Dashboard = () => {
                   savedSuggestions={savedSuggestions}
                   previousAnnotations={previousAnnotations}
                   onReannotate={handleReannotateExample}
+                  collapseAll={collapseAllTimestamp}
                 />
               </div>
             )}

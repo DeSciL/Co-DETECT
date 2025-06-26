@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import styles from "../styles/ExampleItem.module.css";
 import { DataPoint } from "../types/data";
-import { DownOutlined, PlusOutlined } from '@ant-design/icons';
+import { DownOutlined, ReloadOutlined } from '@ant-design/icons';
 
 interface ExampleItemProps {
   point: DataPoint;
@@ -16,9 +16,10 @@ const ExampleItem: React.FC<ExampleItemProps> = ({ point, isSelected, onClick, p
   // Control content expansion/collapse state
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Handle click on the entire item, only trigger selection logic
+  // Handle click on the entire item, trigger both selection and expansion logic
   const handleItemClick = () => {
     onClick(); // Call onClick event passed from parent component to trigger item selection
+    setIsExpanded(!isExpanded); // Also toggle expand/collapse state
   };
 
   // Handle click on expand/collapse button
@@ -154,7 +155,7 @@ const ExampleItem: React.FC<ExampleItemProps> = ({ point, isSelected, onClick, p
               onClick={handleReannotateClick}
               title="Re-annotate this example"
             >
-              <PlusOutlined className={styles.reannotateIcon} />
+              <ReloadOutlined className={styles.reannotateIcon} />
             </div>
           )}
           <div 

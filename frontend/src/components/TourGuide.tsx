@@ -16,8 +16,8 @@ const TourGuide: React.FC<TourGuideProps> = ({ page, onFinish }) => {
       target: 'body',
       content: (
         <div>
-          <h2>Welcome to AutoDETECT!</h2>
-          <p>AutoDETECT: Automatic Discovery of Edge cases in TExt ClassificaTion. Let's start with a quick tour!</p>
+          <h2>Welcome to Co-DETECT!</h2>
+          <p>Let's start with a quick tour!</p>
         </div>
       ),
       placement: 'center',
@@ -58,7 +58,7 @@ const TourGuide: React.FC<TourGuideProps> = ({ page, onFinish }) => {
       content: (
         <div>
           <h3>Start Analysis</h3>
-          <p>Click the "Send" button to automatically perform annotation and cluster analysis. You can also load demo data to try it out.</p>
+          <p>Click the "Send" button to collaboratively perform annotation and cluster analysis. You can also load demo data to try it out.</p>
         </div>
       ),
       placement: 'top',
@@ -71,7 +71,7 @@ const TourGuide: React.FC<TourGuideProps> = ({ page, onFinish }) => {
       target: 'body',
       content: (
         <div>
-          <h2>Welcome to AutoDETECT Dashboard!</h2>
+          <h2>Welcome to Co-DETECT Dashboard!</h2>
           <p>Here you can view annotation results and intelligent analysis. Let me introduce the various functional modules!</p>
         </div>
       ),
@@ -109,6 +109,16 @@ const TourGuide: React.FC<TourGuideProps> = ({ page, onFinish }) => {
       placement: 'left',
     },
     {
+      target: '[data-tour="annotate-new-button"]',
+      content: (
+        <div>
+          <h3>Annotate New Examples</h3>
+          <p>Click the <strong>"Annotate new"</strong> button to add your own text examples for annotation. You can input any text you want to test against your current annotation guidelines. The system will collaboratively annotate it and add it to your examples, helping you validate and refine your guidelines.</p>
+        </div>
+      ),
+      placement: 'bottom',
+    },
+    {
       target: '[data-tour="lower-scatter-plot"]',
       content: (
         <div>
@@ -129,11 +139,21 @@ const TourGuide: React.FC<TourGuideProps> = ({ page, onFinish }) => {
       placement: 'left',
     },
     {
+      target: '[data-tour="add-all-button"]',
+      content: (
+        <div>
+          <h3>Add All Suggestions</h3>
+          <p>Click the <strong>"Add All"</strong> button to quickly save all edge case handling suggestions to your Edge Case Handling section. This is a convenient way to add multiple improvement rules at once, which will all be included in your next iteration.</p>
+        </div>
+      ),
+      placement: 'left',
+    },
+    {
       target: '[data-tour="edge-case-handling"]',
       content: (
         <div>
           <h3>Edge Case Handling</h3>
-          <p>This section shows all the edge case handling rules you've saved from the suggestions. These saved rules will be automatically included when you iterate to improve annotation consistency and accuracy.</p>
+          <p>This section shows all the edge case handling rules you've saved from the suggestions. These saved rules will be collaboratively included when you iterate to improve annotation consistency and accuracy.</p>
         </div>
       ),
       placement: 'right',

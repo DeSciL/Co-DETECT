@@ -15,7 +15,10 @@ import {
   UploadOutlined, 
   PlusOutlined,
   LoadingOutlined,
-  InfoCircleOutlined
+  InfoCircleOutlined,
+  EditOutlined,
+  CheckOutlined,
+  CloseOutlined,
 } from '@ant-design/icons';
 import styles from "../styles/Home.module.css";
 import { AnnotationRequest, DataPoint, mapBackendDataToDataPoint, parseReclusterResponse } from "../types/data";
@@ -39,7 +42,17 @@ const Home = () => {
   const [parseError, setParseError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [taskId, setTaskId] = useState("grc_rnd");
+  const [taskId, setTaskId] = useState("");
+  const [editingLabelIndex, setEditingLabelIndex] = useState<number | null>(null);
+  const [editingLabelValue, setEditingLabelValue] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{
+    task?: string;
+    labels?: string;
+    taskId?: string;
+    textToAnnotate?: string;
+    files?: string;
+  }>({});
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const navigate = useNavigate();
   
   // Get annotation_guideline from task and labels
@@ -217,6 +230,7 @@ const Home = () => {
     if (files && files.length > 0) {
       const fileArray = Array.from(files);
       setFiles(fileArray);
+      clearFieldError('files');
       
       const file = fileArray[0];
       const fileExtension = file.name.split('.').pop()?.toLowerCase();
@@ -237,7 +251,43 @@ const Home = () => {
     }
   };
   
+  // Validate required fields
+  const validateFields = () => {
+    const errors: typeof fieldErrors = {};
+    
+    if (!task.trim()) {
+      errors.task = "Task description is required";
+    }
+    
+    if (labels.length === 0) {
+      errors.labels = "At least one label is required";
+    }
+    
+    if (!taskId.trim()) {
+      errors.taskId = "Task ID is required";
+    }
+    
+    if (uploadMethod === "paste" && !textToAnnotate.trim()) {
+      errors.textToAnnotate = "Please enter text to annotate";
+    }
+    
+    if (uploadMethod === "upload" && files.length === 0) {
+      errors.files = "Please select a file to upload";
+    }
+    
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = async () => {
+    // Set that user has attempted to submit
+    setHasAttemptedSubmit(true);
+    
+    // Validate fields first
+    if (!validateFields()) {
+      return;
+    }
+    
     // Reset any previous errors
     setApiError(null);
     
@@ -504,10 +554,6 @@ const Home = () => {
   
   const isSubmitDisabled = () => {
     return (
-      !task || 
-      labels.length === 0 || 
-      (uploadMethod === "paste" && !textToAnnotate) || 
-      (uploadMethod === "upload" && files.length === 0) ||
       parseError !== null ||
       isLoading
     );
@@ -522,17 +568,76 @@ const Home = () => {
     return 3;
   };
   
+  // Clear field error when user starts typing
+  const clearFieldError = (fieldName: keyof typeof fieldErrors) => {
+    if (hasAttemptedSubmit && fieldErrors[fieldName]) {
+      setFieldErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[fieldName];
+        return newErrors;
+      });
+    }
+  };
+
   // Add a new label
   const handleAddLabel = () => {
     if (newLabel.trim()) {
       setLabels([...labels, newLabel.trim()]);
       setNewLabel("");
+      // Clear labels error when user adds a label
+      clearFieldError('labels');
     }
   };
 
   // Remove a label
   const handleRemoveLabel = (index: number) => {
     setLabels(labels.filter((_, i) => i !== index));
+  };
+
+  // Start editing a label
+  const handleStartEditLabel = (index: number) => {
+    console.log('📝 [HOME EDIT LABEL DEBUG] Starting edit:', {
+      index,
+      labels,
+      selectedLabel: labels[index]
+    });
+    setEditingLabelIndex(index);
+    setEditingLabelValue(labels[index] || "");
+  };
+
+  // Save edited label
+  const handleSaveEditLabel = (e?: React.MouseEvent | React.KeyboardEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+
+    if (editingLabelIndex !== null && editingLabelValue.trim()) {
+      const newLabels = [...labels];
+      newLabels[editingLabelIndex] = editingLabelValue.trim();
+      setLabels(newLabels);
+    }
+    setEditingLabelIndex(null);
+    setEditingLabelValue("");
+  };
+
+  // Cancel editing label
+  const handleCancelEditLabel = (e?: React.MouseEvent | React.KeyboardEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    setEditingLabelIndex(null);
+    setEditingLabelValue("");
+  };
+
+  // Handle keyboard events for label editing
+  const handleLabelKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSaveEditLabel(e);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelEditLabel(e);
+    }
   };
 
   // Function to load sample examples from sample.json
@@ -563,15 +668,18 @@ const Home = () => {
             indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} 
             size="large"
           />
-          <Text className={styles.loadingText}>Processing your data...</Text>
+          <Text className={styles.loadingText}>Waiting for backend data processing... Processing time depends on data size. Why not grab a coffee and relax? ☕</Text>
         </div>
       )}
       
       <Card className={styles.uploadCard}>
         <div className={styles.headerSection}>
-          <Title level={3} className={styles.mainTitle}>
-            AutoDETECT: <strong>Auto</strong>matic <strong>D</strong>iscovery of <strong>E</strong>dge cases in <strong>TE</strong>xt <strong>C</strong>lassifica<strong>T</strong>ion
-          </Title>
+          <div className={styles.titleContainer}>
+            <img src="/logo.png" alt="Co-DETECT Logo" className={styles.logo} />
+            <Title level={3} className={styles.mainTitle}>
+              Co-DETECT: <strong>Co</strong>llaborative <strong>D</strong>iscovery of <strong>E</strong>dge cases in <strong>TE</strong>xt <strong>C</strong>lassifica<strong>T</strong>ion
+            </Title>
+          </div>
         </div>
         
         <StepIndicator currentStep={getCurrentStep()} />
@@ -594,10 +702,18 @@ const Home = () => {
                   className={styles.textareaInput}
                   placeholder="e.g., Please annotate if a social media post contains hate speech or not...."
                   value={task}
-                  onChange={(e) => setTask(e.target.value)}
+                  onChange={(e) => {
+                    setTask(e.target.value);
+                    clearFieldError('task');
+                  }}
                   disabled={isLoading}
                   autoSize={{ minRows: 3, maxRows: 6 }}
                 />
+                {hasAttemptedSubmit && fieldErrors.task && (
+                  <div className={styles.errorMessage} style={{ marginTop: '4px' }}>
+                    {fieldErrors.task}
+                  </div>
+                )}
               </div>
               
               <div className={styles.inputSection} data-tour="task-id-section">
@@ -611,9 +727,17 @@ const Home = () => {
                   className={styles.taskIdInput}
                   placeholder="e.g., hate_speech_detection, sentiment_analysis_tweets, product_review_classification"
                   value={taskId}
-                  onChange={(e) => setTaskId(e.target.value)}
+                  onChange={(e) => {
+                    setTaskId(e.target.value);
+                    clearFieldError('taskId');
+                  }}
                   disabled={isLoading}
                 />
+                {hasAttemptedSubmit && fieldErrors.taskId && (
+                  <div className={styles.errorMessage} style={{ marginTop: '4px' }}>
+                    {fieldErrors.taskId}
+                  </div>
+                )}
               </div>
               
               <div className={styles.inputSection} data-tour="labels-section">
@@ -626,15 +750,68 @@ const Home = () => {
                 <div className={styles.criteriaList}>
                   {labels.map((label, index) => (
                     <div key={`label-${index}-${label.substring(0, 10)}`} className={styles.criterionItem}>
-                      <span className={styles.criterionText}>{label}</span>
-                      <button
-                        className={styles.removeCriterionButton}
-                        onClick={() => handleRemoveLabel(index)}
-                        disabled={isLoading}
-                        aria-label="Remove label"
-                      >
-                        ×
-                      </button>
+                      {editingLabelIndex === index ? (
+                        <Input
+                          value={editingLabelValue}
+                          onChange={(e) => setEditingLabelValue(e.target.value)}
+                          onKeyDown={handleLabelKeyDown}
+                          autoFocus
+                          className={styles.editingInput}
+                        />
+                      ) : (
+                        <span 
+                          className={styles.criterionText}
+                          onDoubleClick={() => handleStartEditLabel(index)}
+                          title="Double-click to edit"
+                        >
+                          {label}
+                        </span>
+                      )}
+                      <div className={styles.criterionActions}>
+                        {editingLabelIndex === index ? (
+                          <>
+                            <Tooltip title="Save changes (Enter)">
+                              <button
+                                className={styles.saveButton}
+                                onClick={handleSaveEditLabel}
+                                disabled={editingLabelValue.trim() === ""}
+                                aria-label="Save changes"
+                              >
+                                <CheckOutlined style={{ fontSize: '12px' }} />
+                              </button>
+                            </Tooltip>
+                            <Tooltip title="Cancel editing (Esc)">
+                              <button
+                                className={styles.cancelButton}
+                                onClick={handleCancelEditLabel}
+                                aria-label="Cancel editing"
+                              >
+                                <CloseOutlined style={{ fontSize: '12px' }} />
+                              </button>
+                            </Tooltip>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              className={styles.editCriterionButton}
+                              onClick={() => handleStartEditLabel(index)}
+                              disabled={isLoading}
+                              aria-label="Edit label"
+                              title="Edit label"
+                            >
+                              <EditOutlined style={{ fontSize: '12px' }} />
+                            </button>
+                            <button
+                              className={styles.removeCriterionButton}
+                              onClick={() => handleRemoveLabel(index)}
+                              disabled={isLoading}
+                              aria-label="Remove label"
+                            >
+                              ×
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -657,6 +834,11 @@ const Home = () => {
                     Add
                   </Button>
                 </div>
+                {hasAttemptedSubmit && fieldErrors.labels && (
+                  <div className={styles.errorMessage} style={{ marginTop: '4px' }}>
+                    {fieldErrors.labels}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -702,7 +884,10 @@ const Home = () => {
                       className={styles.textareaInput}
                       placeholder="Paste your text here..."
                       value={textToAnnotate}
-                      onChange={(e) => setTextToAnnotate(e.target.value)}
+                      onChange={(e) => {
+                        setTextToAnnotate(e.target.value);
+                        clearFieldError('textToAnnotate');
+                      }}
                       disabled={isLoading}
                       autoSize={{ minRows: 5, maxRows: 10 }}
                     />
@@ -760,6 +945,18 @@ const Home = () => {
                 {parseError && (
                   <div className={styles.errorMessage}>
                     {parseError}
+                  </div>
+                )}
+                
+                {hasAttemptedSubmit && uploadMethod === "paste" && fieldErrors.textToAnnotate && (
+                  <div className={styles.errorMessage}>
+                    {fieldErrors.textToAnnotate}
+                  </div>
+                )}
+                
+                {hasAttemptedSubmit && uploadMethod === "upload" && fieldErrors.files && (
+                  <div className={styles.errorMessage}>
+                    {fieldErrors.files}
                   </div>
                 )}
                 
