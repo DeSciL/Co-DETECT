@@ -21,6 +21,15 @@ AutoDETECT: **Auto**matic **D**iscovery of **E**dge cases in **TE**xt **C**lassi
 ---
 ## How to Use
 
+### Optional: Create a New Conda Environment
+
+For ease of use, you could create and activate a new conda environment using:
+
+```bash
+conda create -n co_detect python=3.11.10
+conda activate co_detect
+```
+
 ### 0. API Key Configuration
 
 To use live API calls in Backend Mode, create `.env` file in `/annotation_fastapi/`:
