@@ -1,5 +1,5 @@
-# AutoDETECT
-AutoDETECT: **Auto**matic **D**iscovery of **E**dge cases in **TE**xt **C**lassifica**T**ion
+# Co-DETECT
+Co-DETECT: **Co**llaborative **D**iscovery of **E**dge cases in **TE**xt **C**lassifica**T**ion
 
 ### Environment Requirements
 
@@ -33,7 +33,7 @@ conda activate co_detect
 ### 0. API Key Configuration
 
 To use live API calls in Backend Mode, create `.env` file in `/annotation_fastapi/`:
-```
+```bash
 OPENAI_API_KEY=your_openai_api_key_here
 DEEPSEEK_API_KEY=your_deepseek_api_key_here
 ```
