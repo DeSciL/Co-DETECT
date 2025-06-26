@@ -37,6 +37,8 @@ pip install -r requirements.txt
 uvicorn main:app
 ```
 
+Please note: once you run `uvicorn main:app`, it will show a message saying `Uvicorn runing on http://127.0.0.1:8000 (Press CTRL+C to quit)`, but there is no need to click on the local host in your terminal, please just go ahead and follow the step 2 below.
+
 ### 2. Run Analysis Using Our Frontend
 After launching the backend locally, you can run the analysis using our [**Deployed Frontend**](https://autodetect.vercel.app/)
 
