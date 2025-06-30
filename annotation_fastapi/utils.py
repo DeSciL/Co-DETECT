@@ -356,8 +356,55 @@ Response Format:
 {text}
 </text_to_annotate>
 """,
+'version_7': """Here is the annotation task:
+<annotation_guideline>
+{guideline}
+</annotation_guideline>
+
+Required Workflow:
+1. Granular Analysis: 
+Systematically evaluate the text against EVERY criterion in the guidelines. For each requirement:
+    - State the specific guideline component being checked 
+    - Explicitly state whether it is satisfied/not satisfied  
+    - Cite relevant text evidence
+
+2. Annotation: Combine your analysis to determine the final label. You MUST annotate the index (starting from 0) of the label, not the label itself. If you feel it is unclassifiable given the guidelines and defined labels, feel free to annotate -1.
+
+3. Confidence Assessment:
+Rate your annotation confidence from 0-100. If the sample is ambiguous to annotate given the annotation guideline, and no edge case handling strategy is mentioned, give a low confidence score. If the sample exhibits clear evidence according to the guideline or there is applicable edge case handling rule, give a high confidence score.
+
+4. New Edge Case or Not:
+Th case is a new edge case if:
+   - Confidence ≤ 75 or annotation = -1; AND
+   - It is not covered by existing edge case handling rules. (If classifying -1 following an exist edge case handling rule or guideline, it is not a new edge case)
+
+5. New Edge Case Rule:
+If it is a new edge case:
+Propose a generalizable edge case rule, **sticking** to the format: "When <observable condition> -> <action>"
+The <observable condition> should not be too specific to be **GENERALIZABLE**, and properly describe the current edge case.  
+Examples:
+- "When X and Y co-occur but Z is absent -> classify as xxx"  
+- "If context suggests both A and B -> refuse to classify (-1)"
+- Bad Generalizability: When the text says 'penguins in Antarctica' on May 3, 2021 ... -> <action>
+- Good Generalizability: When a rare entity is mentioned with no supporting context ... -> <action>
+
+If it is not a new edge case, output the string "EMPTY".
+
+Response Format:
+{{
+  "analysis": "Step-by-step evaluation of ALL guideline criteria with text evidence",
+  "annotation": "The index of final label or -1 if unclassifiable",
+  "confidence": Integer 0-100 indicate your annotation confidence,
+  "new_edge_case": Boolean True or False indicate if it is a new edge case or not,
+  "new_edge_case_rule": "If it is a new edge case, give an edge case rule in 'When <condition> -> <action>' format (DON'T forget the arrow ->); Otherwise write EMPTY",
+}}
+
+<text_to_annotate>
+{text}
+</text_to_annotate>
+""",
 }
-VERSION = 'version_6'
+VERSION = 'version_7'
 
 
 def get_input_price(model, input_len=None):
@@ -441,7 +488,7 @@ async def create_answers_async(model, messages, cache_path, generation_args, bat
     return all_answers, error_batches, input_price + output_price
 
 
-def parse_json_output(response):
+def parse_json_output(response, labels):
     response = response.replace('```json', '').replace('```', '').strip('\n ')
     if '</think>' in response:
         response = response.split('</think>')[1]
@@ -482,6 +529,11 @@ def parse_json_output(response):
             'new_edge_case': new_edge_case,
             'new_edge_case_rule': edge_case_rule,
         }
+    try:
+        data['annotation'] = int(data['annotation'])
+        data['annotation'] = labels[data['annotation']]
+    except Exception as e:
+        data['annotation'] = -1
     return data
 
 
@@ -636,6 +688,34 @@ def get_embeddings_with_cache(texts, model, client):
         embeddings = [cache[key] for key in keys]
 
     return embeddings
+
+
+def longest_common_substring(s1, s2):
+    """Returns the longest common substring between s1 and s2."""
+    m = [[0] * (1 + len(s2)) for _ in range(1 + len(s1))]
+    longest, x_longest = 0, 0
+    for x in range(1, 1 + len(s1)):
+        for y in range(1, 1 + len(s2)):
+            if s1[x - 1] == s2[y - 1]:
+                m[x][y] = m[x - 1][y - 1] + 1
+                if m[x][y] > longest:
+                    longest = m[x][y]
+                    x_longest = x
+            else:
+                m[x][y] = 0
+    return s1[x_longest - longest: x_longest]
+
+
+def find_label_with_longest_common_substring(annotation, labels):
+    """Find the label with the longest common substring with annotation."""
+    max_len = 0
+    best_label = None
+    for label in labels:
+        lcs = longest_common_substring(annotation, label)
+        if len(lcs) > max_len:
+            max_len = len(lcs)
+            best_label = label
+    return best_label
 
 
 if __name__ == '__main__':

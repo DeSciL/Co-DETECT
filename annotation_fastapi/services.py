@@ -319,15 +319,9 @@ async def process_annotation_json(
     task_id: str,  # Added task_id parameter
     round_string: str = "",
 ) -> Dict:
-    # # deduplicate examples
-    # seen = set()
-    # deduped = []
-    # for x in examples:
-    #     if x not in seen:
-    #         deduped.append(x)
-    #         seen.add(x)
-    # examples = deduped
-    # Check if uid2example and example2uid exist
+    label_str = guideline_text.split('\n\nLabels:')[-1].strip()
+    labels = [l.strip('- ') for l in label_str.split('\n')]
+
     if os.path.exists(f'uid2example_{task_id}.json') and os.path.exists(f'example2uid_{task_id}.json'):
         with open(f'uid2example_{task_id}.json', 'r') as f:
             uid2example = json.load(f)
@@ -379,7 +373,7 @@ async def process_annotation_json(
     all_edge_case_rules = []
 
     for anno_text in annotated_texts:
-        data_parsed = parse_json_output(anno_text)
+        data_parsed = parse_json_output(anno_text, labels)
         all_analyses.append(data_parsed["analysis"])
         all_annotations.append(data_parsed["annotation"])
         all_confidence_scores.append(data_parsed["confidence"])
@@ -416,6 +410,9 @@ async def process_annotation_one_json(
     Returns:
         Dict containing the annotation results
     """
+    label_str = guideline_text.split('\n\nLabels:')[-1].strip()
+    labels = [l.strip('- ') for l in label_str.split('\n')]
+
     # Load pre-trained models if they exist
     pca_model = None
     kmeans_model = None
@@ -463,7 +460,7 @@ async def process_annotation_one_json(
     annotated_text = await call_openai_annotation([example], guideline_text)
     df['raw_annotations'] = annotated_text
     # Parse response
-    data_parsed = parse_json_output(annotated_text[0])
+    data_parsed = parse_json_output(annotated_text[0], labels)
     df["analyses"] = [data_parsed["analysis"]]
     df["annotation"] = [data_parsed["annotation"]]
     df["confidence"] = [data_parsed["confidence"]]
