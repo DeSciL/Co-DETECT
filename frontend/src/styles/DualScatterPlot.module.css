@@ -315,7 +315,7 @@
   height: 12px;
 }
 
-/* 图例开关按钮样式 */
+/* Legend toggle button styles */
 .toggleButton {
   display: inline-flex;
   align-items: center;
@@ -512,7 +512,8 @@
   padding: 12px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
   z-index: 30;
-  max-width: 180px;
+  max-width: 300px;
+  min-width: 180px;
   font-size: 12px;
   display: flex;
   flex-direction: column;
@@ -550,9 +551,10 @@
 
 .legendItem {
   display: flex;
-  align-items: center;
-  margin-bottom: 6px;
+  align-items: flex-start;
+  margin-bottom: 8px;
   font-size: 11px;
+  gap: 8px;
 }
 
 .legendItem:last-child {
@@ -562,17 +564,19 @@
 .legendShape {
   width: 12px;
   height: 12px;
-  margin-right: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 .legendColor {
   width: 12px;
   height: 12px;
   border-radius: 3px;
-  margin-right: 8px;
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 .negativeShape {
@@ -603,6 +607,11 @@
 .legendLabel {
   color: #4b5563;
   font-weight: 500;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  line-height: 1.3;
+  flex: 1;
 }
 
 @media (max-width: 768px) {

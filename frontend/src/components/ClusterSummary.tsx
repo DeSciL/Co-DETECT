@@ -2,17 +2,37 @@ import React, { useState } from "react";
 import { Tooltip } from 'antd';
 import { EditOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import styles from "../styles/ClusterSummary.module.css";
+import { DataPoint } from "../types/data";
+import * as d3 from "d3";
+
+// Keep color configuration consistent with ClusterGroup and DualScatterPlot
+const PLOT_COLORS = {
+  BOTTOM: [
+    "#8dd3c7",
+    "#ffffb3", 
+    "#bebada",
+    "#fb8072",
+    "#80b1d3",
+    "#fdb462",
+    "#b3de69",
+    "#fccde5",
+    "#d9d9d9",
+    "#bc80bd",
+  ]
+};
 
 interface ClusterSummaryProps {
   savedSuggestions: Record<string, string>;
   onRemoveSuggestion?: (clusterKey: string) => void;
   onEditSuggestion?: (clusterKey: string, newSuggestion: string) => void;
+  allClusterData?: DataPoint[]; // New: All cluster data for unified color mapping
 }
 
 const ClusterSummary: React.FC<ClusterSummaryProps> = ({
   savedSuggestions,
   onRemoveSuggestion,
   onEditSuggestion,
+  allClusterData,
 }) => {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>("");
@@ -21,6 +41,31 @@ const ClusterSummary: React.FC<ClusterSummaryProps> = ({
   const getClusterLetter = (num: number): string => {
     if (num >= 8) return "Others";
     return String.fromCharCode(65 + num); // 65 is ASCII for 'A'
+  };
+
+  // Get cluster color - corresponds to ClusterGroup and scatter plot colors below
+  const getClusterColor = (clusterNum: number): string => {
+    // If all cluster data is available, use actual cluster IDs to create domain, ensuring consistency with scatter plot
+    if (allClusterData && Array.isArray(allClusterData)) {
+      const allClusterIds = new Set<string>();
+      allClusterData.forEach(d => allClusterIds.add(String(d.new_cluster_id)));
+      const sortedClusterIds = Array.from(allClusterIds).sort();
+      
+      const colorScale = d3
+        .scaleOrdinal<string, string>()
+        .domain(sortedClusterIds)
+        .range(PLOT_COLORS.BOTTOM);
+      
+      return colorScale(String(clusterNum));
+    }
+    
+    // Fall back to original logic
+    const colorScale = d3
+      .scaleOrdinal<string, string>()
+      .domain(Array.from({length: 9}, (_, i) => String(i))) // 0-8
+      .range(PLOT_COLORS.BOTTOM);
+    
+    return colorScale(String(clusterNum));
   };
 
   // If no saved suggestions available
@@ -87,7 +132,17 @@ const ClusterSummary: React.FC<ClusterSummaryProps> = ({
               className={styles.clusterSummary}
             >
               <div className={styles.clusterHeader}>
-                <span className={styles.clusterBadge}>
+                <span 
+                  className={styles.clusterBadge} 
+                  style={{ 
+                    backgroundColor: getClusterColor(numericCluster),
+                    color: 'white',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)',
+                    fontWeight: '700'
+                  }}
+                >
                   {getClusterLetter(numericCluster)}
                 </span>
                 <div className={styles.headerActions}>

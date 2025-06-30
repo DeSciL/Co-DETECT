@@ -7,10 +7,8 @@ import type { BaseType } from "d3";
 interface PlotConfig {
   data: DataPoint[];
   showSharedLegend?: boolean;
-  showClusterLegend?: boolean;
   forcedAxes?: boolean;
-  clusterPrefix?: string;  // Add this to support custom cluster prefixes (0-3 vs A-D)
-  colorScheme?: string[];  // Add this to support custom color schemes
+  colorScheme?: string[];  // Color schemes for annotation values
   title?: string;          // Optional title for the plot
 }
 
@@ -74,6 +72,20 @@ const DualScatterPlot = ({
   hoveredPoint: externalHoveredPoint
 }: DualScatterPlotProps) => {
 
+  // Convert number to corresponding letter (0->A, 1->B, 2->C, etc.)
+  const getClusterLetter = (num: number): string => {
+    // For clusters 0-7, use letters A-H
+    if (num <= 7) {
+      return String.fromCharCode(65 + num); // 65 is ASCII for 'A'
+    }
+    // For clusters 8 and above, use I, J, K, L, ... or Edge Case X format
+    if (num <= 25) {
+      return String.fromCharCode(65 + num); // I, J, K, L, ...
+    }
+    // For very high numbers, use Edge Case format
+    return `Edge Case ${num}`;
+  };
+
 
   // Create a derived state that tracks if the selected point exists in each dataset
   const [topSelectedPoint, setTopSelectedPoint] = useState<DataPoint | null>(null);
@@ -134,16 +146,7 @@ const DualScatterPlot = ({
     return bottomPlot.data;
   }, [bottomPlot?.data]);
 
-  // Add this function somewhere near the top, before renderSharedLegend
-  const getClusterLabel = (clusterNumber: number, prefix?: string, isLetterBased?: boolean): string => {
-    if (isLetterBased) {
-      // Convert number to letter (0 -> A, 1 -> B, 2 -> C, etc.)
-      const letter = String.fromCharCode(65 + clusterNumber); // ASCII: A = 65, B = 66, etc.
-      return prefix ? `${prefix}${letter}` : letter;
-    }
-    // For numerical labels, add 1 to convert from 0-based to 1-based (0 -> 1, 1 -> 2, etc.)
-    return prefix ? `${prefix}${clusterNumber + 1}` : `${clusterNumber + 1}`;
-  };
+
 
   // Update renderSharedLegend function
   const renderSharedLegend = useCallback(() => {
@@ -169,8 +172,9 @@ const DualScatterPlot = ({
     // Force visible styles with important flags
     legendContainer.style.cssText = `
       position: absolute !important;
-      top: ${isSingleMode ? '20px' : '45%'} !important; 
-      right: 20px !important;
+      top: 50% !important; 
+      right: 10px !important;
+      transform: translateY(-50%) !important;
       background-color: white !important;
       border: 1px solid #e2e8f0 !important;
       border-radius: 4px !important;
@@ -179,26 +183,58 @@ const DualScatterPlot = ({
       z-index: 1000 !important;
       opacity: 1 !important;
       pointer-events: none !important;
-      max-width: 180px !important;
+      max-width: 200px !important;
+      max-height: 80vh !important;
+      overflow-y: auto !important;
+      display: block !important;
     `;
     
     // Add annotation shapes legend
     const shapesLegend = document.createElement('div');
     shapesLegend.className = styles.legendSection;
-    shapesLegend.style.marginBottom = '5px';
+    shapesLegend.style.marginBottom = '8px';
     
     const shapesTitle = document.createElement('h4');
-    shapesTitle.innerText = 'Annotation Type';
+    shapesTitle.innerText = 'Main Clusters Legend';
     shapesTitle.className = styles.legendTitle;
     shapesTitle.style.cssText = 'color: #000 !important; margin: 0 0 3px 0 !important; font-size: 11px !important;';
     shapesLegend.appendChild(shapesTitle);
     
-    // Update these to match the actual plot items exactly
-    const shapeItems = [
-      { label: "Unclear (-1)", shape: "cross", color: "#777777" },    // Cross for unclear annotation (-1)
-      { label: "Negative (0)", shape: "circle", color: "#777777" },    // Circle for negative (0)
-      { label: "Positive (1)", shape: "circle", color: "#777777" }     // Circle for positive (1)
-    ];
+    // Add explanation text
+    const shapesExplanation = document.createElement('p');
+    shapesExplanation.innerText = 'Colors = annotations\n+ = unclear (-1)\n● = others';
+    shapesExplanation.style.cssText = 'color: #666 !important; margin: 0 0 6px 0 !important; font-size: 9px !important; line-height: 1.3 !important; white-space: pre-line !important;';
+    shapesLegend.appendChild(shapesExplanation);
+    
+    // Helper function to check if annotation represents -1
+    const isNegativeOne = (annotation: string) => {
+      return String(annotation).trim().startsWith('-1');
+    };
+    
+    // Get unique annotation values from the data to generate dynamic legend
+    const allAnnotationValues = new Set<string>();
+    if (topPlot.data && Array.isArray(topPlot.data)) {
+      topPlot.data.forEach(d => allAnnotationValues.add(String(d.annotation)));
+    }
+    if (!isSingleMode && bottomPlot?.data && Array.isArray(bottomPlot.data)) {
+      bottomPlot.data.forEach(d => allAnnotationValues.add(String(d.annotation)));
+    }
+    
+    // Convert to array and sort
+    const annotationValues = Array.from(allAnnotationValues).sort();
+    
+    // Create unified color scale for all annotations across both plots
+    const unifiedColorScale = d3
+      .scaleOrdinal<string, string>()
+      .domain(annotationValues)
+      .range(topPlot.colorScheme || PLOT_COLORS.SINGLE);
+    
+    // Generate shape items dynamically based on actual data
+    const shapeItems = annotationValues.map(annotation => ({
+      label: annotation, // Show full annotation value in legend
+      shape: isNegativeOne(annotation) ? "x" : "circle",
+      color: unifiedColorScale(annotation)
+    }));
     
     const shapesList = document.createElement('ul');
     shapesList.className = styles.legendList;
@@ -212,9 +248,32 @@ const DualScatterPlot = ({
       const shape = document.createElement('span');
       shape.className = styles.legendShape;
       
-      // Apply direct inline styles to ensure visibility and match the plot
-      if (item.shape === "circle") {
-        // Circle for "Neutral"
+      if (item.shape === "x") {
+        // Plus/Cross shape for -1 annotations
+        shape.innerText = '+';
+        shape.style.cssText = `
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          width: 12px !important;
+          height: 12px !important;
+          color: ${item.color} !important;
+          font-weight: 900 !important;
+          font-size: 18px !important;
+          font-family: Arial, sans-serif !important;
+          text-shadow: 
+            1px 0 0 ${item.color}, 
+            -1px 0 0 ${item.color}, 
+            0 1px 0 ${item.color}, 
+            0 -1px 0 ${item.color},
+            0.7px 0.7px 0 ${item.color},
+            -0.7px -0.7px 0 ${item.color},
+            0.7px -0.7px 0 ${item.color},
+            -0.7px 0.7px 0 ${item.color} !important;
+          margin-right: 8px !important;
+        `;
+      } else {
+        // Circle shape for other annotations
         shape.style.cssText = `
           display: inline-block !important;
           width: 12px !important;
@@ -223,61 +282,6 @@ const DualScatterPlot = ({
           border-radius: 50% !important;
           margin-right: 8px !important;
         `;
-      } else if (item.shape === "cross") {
-        // Cross for "Positive"
-        shape.style.cssText = `
-          display: inline-block !important;
-          position: relative !important;
-          width: 12px !important;
-          height: 12px !important;
-          margin-right: 8px !important;
-        `;
-        
-        // Create cross using two spans
-        const crossBefore = document.createElement('span');
-        crossBefore.style.cssText = `
-          position: absolute !important;
-          left: 4px !important;
-          top: 0px !important;
-          width: 4px !important;
-          height: 12px !important;
-          background-color: ${item.color} !important;
-        `;
-        
-        const crossAfter = document.createElement('span');
-        crossAfter.style.cssText = `
-          position: absolute !important;
-          top: 4px !important;
-          left: 0px !important;
-          width: 12px !important;
-          height: 4px !important;
-          background-color: ${item.color} !important;
-        `;
-        
-        shape.appendChild(crossBefore);
-        shape.appendChild(crossAfter);
-      } else if (item.shape === "minus") {
-        // Minus for "Negative"
-        shape.style.cssText = `
-          display: inline-block !important;
-          position: relative !important;
-          width: 12px !important;
-          height: 12px !important;
-          margin-right: 8px !important;
-        `;
-        
-        // Create minus using a single span
-        const minus = document.createElement('span');
-        minus.style.cssText = `
-          position: absolute !important;
-          top: 4px !important;
-          left: 0px !important;
-          width: 12px !important;
-          height: 4px !important;
-          background-color: ${item.color} !important;
-        `;
-        
-        shape.appendChild(minus);
       }
       
       const label = document.createElement('span');
@@ -296,164 +300,98 @@ const DualScatterPlot = ({
     // Add size legend
     const sizeLegend = document.createElement('div');
     sizeLegend.className = styles.legendSection;
-    sizeLegend.style.marginBottom = '5px';
+    sizeLegend.style.marginBottom = '8px';
     
     const sizeTitle = document.createElement('h4');
-    sizeTitle.innerText = 'Point Size';
+    sizeTitle.innerText = 'Point Size Legend';
     sizeTitle.className = styles.legendTitle;
     sizeTitle.style.cssText = 'color: #000 !important; margin: 0 0 3px 0 !important; font-size: 11px !important;';
     sizeLegend.appendChild(sizeTitle);
     
     const sizeDesc = document.createElement('p');
-    sizeDesc.innerText = 'Smaller points = Higher confidence';
+    sizeDesc.innerText = 'Smaller = Higher confidence';
     sizeDesc.className = styles.legendDesc;
-    sizeDesc.style.cssText = 'margin: 0 !important; font-size: 11px !important; color: #000 !important;';
+    sizeDesc.style.cssText = 'margin: 0 !important; font-size: 9px !important; color: #666 !important;';
     sizeLegend.appendChild(sizeDesc);
     
     legendContainer.appendChild(sizeLegend);
     
-    // Add cluster colors legend if enabled
-    if (topPlot.showClusterLegend !== false && topPlot.data && Array.isArray(topPlot.data)) {
-      // Create a top clusters legend section
-      const topColorLegend = document.createElement('div');
-      topColorLegend.className = styles.legendSection;
-      topColorLegend.style.marginBottom = '10px';
+    // Add cluster colors legend for bottom plot (if not single mode)
+    if (!isSingleMode && bottomPlot?.data && Array.isArray(bottomPlot.data)) {
+      // Get all unique cluster values from bottom plot
+      const allClusterValues = new Set<string>();
+      bottomPlot.data.forEach(d => allClusterValues.add(String(d.new_cluster_id)));
       
-      const topColorTitle = document.createElement('h4');
-      const titleText = isSingleMode 
-        ? 'Clusters'
-        : 'Main Clusters';
-      topColorTitle.innerText = titleText;
-      topColorTitle.className = styles.legendTitle;
-      topColorTitle.style.cssText = 'color: #000 !important; margin: 0 0 3px 0 !important; font-size: 11px !important;';
-      topColorLegend.appendChild(topColorTitle);
+      const clusterValues = Array.from(allClusterValues).sort();
       
-      // Create color scale for top plot using the same scale as in renderPlot
-      const topColorScale = d3
-        .scaleOrdinal<number, string>()
-        .domain([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-        .range(topPlot.colorScheme || PLOT_COLORS.SINGLE);
-      
-      // Get unique cluster values from top dataset
-      const topUniqueClusters = new Set<number>();
-      topPlot.data.forEach(d => topUniqueClusters.add(d.new_cluster_id || 0));
-      
-      // Convert to array and sort
-      const topClusterValues = Array.from(topUniqueClusters).sort((a, b) => a - b);
-      
-      // Create the color scale entries for the legend
-      const topColorScaleEntries = topClusterValues.map(value => ({
-        value,
-        color: topColorScale(value)
-      }));
-      
-      const topColorsList = document.createElement('ul');
-      topColorsList.className = styles.legendList;
-      topColorsList.style.cssText = 'list-style: none !important; padding: 0 !important; margin: 0 !important;';
-      
-      topColorScaleEntries.forEach(item => {
-        const listItem = document.createElement('li');
-        listItem.className = styles.legendItem;
-        listItem.style.cssText = 'display: flex !important; align-items: center !important; margin-bottom: 3px !important;';
+      if (clusterValues.length > 0) {
+        // Create cluster colors legend section
+        const clusterColorLegend = document.createElement('div');
+        clusterColorLegend.className = styles.legendSection;
+        clusterColorLegend.style.marginBottom = '8px';
         
-        const color = document.createElement('span');
-        color.className = styles.legendColor;
-        color.style.cssText = `
-          display: inline-block !important;
-          width: 12px !important;
-          height: 12px !important;
-          background-color: ${item.color} !important;
-          margin-right: 8px !important;
-          border-radius: 2px !important;
-        `;
+        const clusterColorTitle = document.createElement('h4');
+        clusterColorTitle.innerText = 'Edge Case Clusters Legend';
+        clusterColorTitle.className = styles.legendTitle;
+        clusterColorTitle.style.cssText = 'color: #000 !important; margin: 0 0 3px 0 !important; font-size: 11px !important;';
+        clusterColorLegend.appendChild(clusterColorTitle);
         
-        const label = document.createElement('span');
-        label.className = styles.legendLabel;
-        // Use numeric labels for top plot
-        label.innerText = getClusterLabel(item.value, topPlot.clusterPrefix, false);
-        label.style.cssText = 'font-size: 10px !important; color: #000 !important;';
+        // Add explanation text for edge case clusters
+        const clusterExplanation = document.createElement('p');
+        clusterExplanation.innerText = 'Colors = clusters\n+ = unclear (-1)\n● = others';
+        clusterExplanation.style.cssText = 'color: #666 !important; margin: 0 0 6px 0 !important; font-size: 9px !important; line-height: 1.3 !important; white-space: pre-line !important;';
+        clusterColorLegend.appendChild(clusterExplanation);
         
-        listItem.appendChild(color);
-        listItem.appendChild(label);
-        topColorsList.appendChild(listItem);
-      });
-      
-      topColorLegend.appendChild(topColorsList);
-      legendContainer.appendChild(topColorLegend);
+        // Create color scale for clusters using bottom plot colors
+        const clusterColorScale = d3
+          .scaleOrdinal<string, string>()
+          .domain(clusterValues)
+          .range(bottomPlot.colorScheme || PLOT_COLORS.BOTTOM);
+        
+        const clusterColorsList = document.createElement('ul');
+        clusterColorsList.className = styles.legendList;
+        clusterColorsList.style.cssText = 'list-style: none !important; padding: 0 !important; margin: 0 !important;';
+        
+        clusterValues.forEach(cluster => {
+           const listItem = document.createElement('li');
+           listItem.className = styles.legendItem;
+           listItem.style.cssText = 'display: flex !important; align-items: center !important; margin-bottom: 3px !important;';
+           
+           const colorIndicator = document.createElement('span');
+           colorIndicator.className = styles.legendColor;
+           colorIndicator.style.cssText = `
+             display: inline-block !important;
+             width: 12px !important;
+             height: 12px !important;
+             background-color: ${clusterColorScale(cluster)} !important;
+             margin-right: 8px !important;
+             border-radius: 50% !important;
+           `;
+           
+           const label = document.createElement('span');
+           label.className = styles.legendLabel;
+           label.innerText = `Cluster ${getClusterLetter(parseInt(cluster))}`;
+           label.style.cssText = 'font-size: 10px !important; color: #000 !important;';
+           
+           listItem.appendChild(colorIndicator);
+           listItem.appendChild(label);
+           clusterColorsList.appendChild(listItem);
+         });
+        
+        clusterColorLegend.appendChild(clusterColorsList);
+        legendContainer.appendChild(clusterColorLegend);
+      }
     }
     
-    // Create a bottom clusters legend section in dual mode only
-    if (!isSingleMode && bottomPlot && bottomPlot.showClusterLegend !== false && bottomPlot.data && Array.isArray(bottomPlot.data)) {
-      const bottomColorLegend = document.createElement('div');
-      bottomColorLegend.className = styles.legendSection;
-      bottomColorLegend.style.marginBottom = '3px';
-      
-      const bottomColorTitle = document.createElement('h4');
-      bottomColorTitle.innerText = 'Edge Case Clusters';
-      bottomColorTitle.className = styles.legendTitle;
-      bottomColorTitle.style.cssText = 'color: #000 !important; margin: 0 0 3px 0 !important; font-size: 11px !important;';
-      bottomColorLegend.appendChild(bottomColorTitle);
-      
-      // Create color scale for bottom plot using the same scale as in renderPlot
-      const bottomColorScale = d3
-        .scaleOrdinal<number, string>()
-        .domain([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-        .range(bottomPlot.colorScheme || PLOT_COLORS.SINGLE);
-      
-      // Get unique cluster values from bottom dataset
-      const bottomUniqueClusters = new Set<number>();
-      bottomPlot.data.forEach(d => {
-        // Use cluster ID directly
-        const clusterValue = d.new_cluster_id || 0;
-        bottomUniqueClusters.add(clusterValue);
-      });
-      
-      // Convert to array and sort
-      const bottomClusterValues = Array.from(bottomUniqueClusters).sort((a, b) => a - b);
-      
-      const bottomColorsList = document.createElement('ul');
-      bottomColorsList.className = styles.legendList;
-      bottomColorsList.style.cssText = 'list-style: none !important; padding: 0 !important; margin: 0 !important;';
-      
-      // Add all clusters including Others
-      bottomClusterValues.forEach(value => {
-        const listItem = document.createElement('li');
-        listItem.className = styles.legendItem;
-        listItem.style.cssText = 'display: flex !important; align-items: center !important; margin-bottom: 3px !important;';
-        
-        const color = document.createElement('span');
-        color.className = styles.legendColor;
-        color.style.cssText = `
-          display: inline-block !important;
-          width: 12px !important;
-          height: 12px !important;
-          background-color: ${bottomColorScale(value)} !important;
-          margin-right: 8px !important;
-          border-radius: 2px !important;
-        `;
-        
-        const label = document.createElement('span');
-        label.className = styles.legendLabel;
-        // Show the cluster label directly
-        label.innerText = getClusterLabel(value, bottomPlot.clusterPrefix, true);
-        label.style.cssText = 'font-size: 10px !important; color: #000 !important;';
-        
-        listItem.appendChild(color);
-        listItem.appendChild(label);
-        bottomColorsList.appendChild(listItem);
-      });
-      
-      bottomColorLegend.appendChild(bottomColorsList);
-      legendContainer.appendChild(bottomColorLegend);
-    }
+
     
     // Insert the legend directly into the container to ensure visibility
     if (containerRef.current) {
       containerRef.current.appendChild(legendContainer);
     }
     
-  }, [topPlot.showSharedLegend, topPlot.showClusterLegend, 
-     showLegend, topPlot.data, topPlot.clusterPrefix, 
+  }, [topPlot.showSharedLegend, 
+     showLegend, topPlot.data, 
      topPlot.colorScheme, isSingleMode, bottomPlot]);
 
   // NOW define toggleLegend function AFTER renderSharedLegend is defined
@@ -592,9 +530,9 @@ const DualScatterPlot = ({
     thisSyncingRef?: React.RefObject<boolean>,
     isRenderingRef?: React.RefObject<boolean>,
     isTopPlot: boolean = true,
-    _clusterPrefix?: string,
     colorScheme?: string[],
-    isSingleMode: boolean = false
+    isSingleMode: boolean = false,
+    allPlotsData?: { topData?: DataPoint[], bottomData?: DataPoint[] }
   ) => {
     if (!svgRef.current || !data || !Array.isArray(data) || data.length === 0 || dimensions.width === 0) {
       return;
@@ -671,15 +609,9 @@ const DualScatterPlot = ({
       return basePointRadius * 10;                        // Very high confidence (90-100)
     };
 
-    // Categorize annotation values
-    const getAnnotationType = (annotation: string | number): "positive" | "negative" | "neutral" | "unclear" => {
-      if (annotation === 1 || annotation === "1" || annotation === "+1") {
-        return "positive";
-      } else if (annotation === -1 || annotation === "-1") {
-        return "unclear";
-      } else {
-        return "neutral";
-      }
+    // Helper function to check if annotation represents -1
+    const isNegativeOne = (annotation: string | number) => {
+      return String(annotation).trim().startsWith('-1');
     };
 
     // Create scales
@@ -708,13 +640,42 @@ const DualScatterPlot = ({
       .range([innerHeight, 0])
       .nice();
 
-    // In renderPlot function, update the color scale
-    const colorScale = d3
-      .scaleOrdinal<number, string>()
-      .domain([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])  // Support more cluster IDs
-      .range(colorScheme || (isTopPlot 
-        ? PLOT_COLORS.SINGLE 
-        : PLOT_COLORS.SINGLE));
+    // Create color scale based on what we're visualizing
+    let colorScale: d3.ScaleOrdinal<string, string>;
+    
+    if (isTopPlot) {
+      // Top plot: color by annotation values
+      const allAnnotationValues = new Set<string>();
+      
+      // Add annotations from current plot
+      data.forEach(d => allAnnotationValues.add(String(d.annotation)));
+      
+      // Add annotations from other plots to ensure consistent color mapping
+      if (allPlotsData) {
+        if (allPlotsData.topData && Array.isArray(allPlotsData.topData)) {
+          allPlotsData.topData.forEach(d => allAnnotationValues.add(String(d.annotation)));
+        }
+        if (allPlotsData.bottomData && Array.isArray(allPlotsData.bottomData)) {
+          allPlotsData.bottomData.forEach(d => allAnnotationValues.add(String(d.annotation)));
+        }
+      }
+      
+      const unifiedAnnotationValues = Array.from(allAnnotationValues).sort();
+      colorScale = d3
+        .scaleOrdinal<string, string>()
+        .domain(unifiedAnnotationValues)
+        .range(colorScheme || PLOT_COLORS.SINGLE);
+    } else {
+      // Bottom plot: color by cluster
+      const allClusterValues = new Set<string>();
+      data.forEach(d => allClusterValues.add(String(d.new_cluster_id)));
+      
+      const unifiedClusterValues = Array.from(allClusterValues).sort();
+      colorScale = d3
+        .scaleOrdinal<string, string>()
+        .domain(unifiedClusterValues)
+        .range(colorScheme || PLOT_COLORS.BOTTOM);
+    }
 
     // Add X and Y Axes
     if (forcedAxes || height >= 200) {
@@ -751,14 +712,7 @@ const DualScatterPlot = ({
             });
         });
 
-      // Add X-axis title
-      g.append("text")
-        .attr("text-anchor", "middle")
-        .attr("x", innerWidth / 2)
-        .attr("y", innerHeight + 35)
-        .attr("fill", "#666")
-        .style("font-size", "12px")
-        .text(isTopPlot ? "Main Clusters" : "Edge Case Clusters");
+      // X-axis title removed per user request
 
       // Y Axis
       g.append("g")
@@ -797,9 +751,9 @@ const DualScatterPlot = ({
     const pointsContainer = g.append("g")
       .attr("class", "points-container");
 
-    // Create symbol generators for different shapes based on annotation
-    const symbolCircle = d3.symbol().type(d3.symbolCircle);  // For neutral annotations (0) and positive annotations (1)
-    const symbolCross = d3.symbol().type(d3.symbolCross);  // For unclear annotations (-1)
+    // Create symbol generators
+    const symbolCircle = d3.symbol().type(d3.symbolCircle);
+    const symbolCross = d3.symbol().type(d3.symbolCross);
 
     // Add points
     pointsContainer
@@ -808,23 +762,27 @@ const DualScatterPlot = ({
       .join("path")
       .attr("d", d => {
         const size = getSizeFromConfidence(d.confidence);
-        const annotationType = getAnnotationType(d.annotation);
-        
-        if (annotationType === "positive") {
-          return symbolCircle.size(size)(); // Positive annotation (1, +1): circle
-        } else if (annotationType === "unclear") {
-          return symbolCross.size(size * 1.1)(); // Unclear annotation (-1): cross
+        // Use different symbols based on annotation value
+        if (isNegativeOne(d.annotation)) {
+          return symbolCross.size(size)();
         } else {
-          return symbolCircle.size(size)(); // Neutral annotation (0): circle - baseline
+          return symbolCircle.size(size)();
         }
       })
       .attr("transform", d => {
         return `translate(${xScale(d.pca_x)},${yScale(d.pca_y)})`;
       })
       .attr("fill", (d) => {
-        // Use the cluster ID directly for better color distribution
-        const clusterValue = d.new_cluster_id || 0;
-        return colorScale(clusterValue);
+        // Color based on plot type
+        if (isTopPlot) {
+          // Top plot: color by annotation value
+          const annotationValue = String(d.annotation);
+          return colorScale(annotationValue);
+        } else {
+          // Bottom plot: color by cluster
+          const clusterValue = String(d.new_cluster_id);
+          return colorScale(clusterValue);
+        }
       })
       .attr("class", (d) => {
         if (!d) return styles.point;
@@ -1198,9 +1156,13 @@ const DualScatterPlot = ({
         isTopSyncingRef,
         isTopRenderingRef,
         true, // isTopPlot
-        topPlot.clusterPrefix,
         isSingleMode ? topPlot.colorScheme || PLOT_COLORS.SINGLE : topPlot.colorScheme,
-        isSingleMode
+        isSingleMode,
+        // Pass all plots data for unified color mapping
+        {
+          topData: processedTopData,
+          bottomData: processedBottomData
+        }
       );
     }
     
@@ -1221,8 +1183,13 @@ const DualScatterPlot = ({
         isBottomSyncingRef,
         isBottomRenderingRef,
         false, // isTopPlot
-        bottomPlot.clusterPrefix,
-        bottomPlot.colorScheme
+        bottomPlot.colorScheme,
+        isSingleMode,
+        // Pass all plots data for unified color mapping
+        {
+          topData: processedTopData,
+          bottomData: processedBottomData
+        }
       );
     }
     
@@ -1232,7 +1199,7 @@ const DualScatterPlot = ({
     }, 200); // Small delay to ensure plots are rendered first
   }, [dimensions, processedTopData, processedBottomData, topSelectedPoint, bottomSelectedPoint, 
      renderPlot, renderSharedLegend, isSingleMode, 
-     topPlot.clusterPrefix, bottomPlot?.clusterPrefix, topPlot.colorScheme, bottomPlot?.colorScheme,
+     topPlot.colorScheme, bottomPlot?.colorScheme,
      topPlot.forcedAxes, bottomPlot?.forcedAxes, bottomPlot]);
 
   // Separately handle hover point updates to avoid re-rendering the entire chart

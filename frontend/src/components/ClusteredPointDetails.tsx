@@ -98,7 +98,7 @@ const ClusteredPointDetails: React.FC<ClusteredPointDetailsProps> = ({
 
   return (
     <div className={styles.container} ref={containerRef}>
-      {/* 隐藏按钮，但保留其功能，作为Dashboard中按钮的触发目标 */}
+              {/* Hide button but keep its functionality as trigger target for Dashboard buttons */}
       <Button 
         type="default"
         icon={<UpOutlined />}
@@ -152,6 +152,7 @@ const ClusteredPointDetails: React.FC<ClusteredPointDetailsProps> = ({
                     forceCollapsed={collapseTimestamp}
                     previousAnnotations={previousAnnotations}
                     onReannotate={onReannotate}
+                    allClusterData={data}
                   />
                 </div>
               );
@@ -208,6 +209,7 @@ const ClusteredPointDetails: React.FC<ClusteredPointDetailsProps> = ({
                   forceCollapsed={collapseTimestamp}
                   previousAnnotations={previousAnnotations}
                   onReannotate={onReannotate}
+                  allClusterData={data}
                 />
               </div>
             );

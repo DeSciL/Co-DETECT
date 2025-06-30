@@ -27,7 +27,7 @@
   color: var(--text-primary);
 }
 
-/* 确保Modal中的表单元素有正确的颜色 */
+/* Ensure form elements in Modal have correct colors */
 .modal input,
 .modal textarea,
 .modal select {

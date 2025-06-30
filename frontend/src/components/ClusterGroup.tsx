@@ -5,6 +5,23 @@ import { DataPoint } from "../types/data";
 import ExampleItem from "./ExampleItem";
 import styles from "../styles/ClusterGroup.module.css";
 import Modal from "./Modal";
+import * as d3 from "d3";
+
+// Keep color configuration consistent with DualScatterPlot
+const PLOT_COLORS = {
+  BOTTOM: [
+    "#8dd3c7",
+    "#ffffb3", 
+    "#bebada",
+    "#fb8072",
+    "#80b1d3",
+    "#fdb462",
+    "#b3de69",
+    "#fccde5",
+    "#d9d9d9",
+    "#bc80bd",
+  ]
+};
 
 interface ClusterGroupProps {
   clusterNumber: number;
@@ -17,6 +34,7 @@ interface ClusterGroupProps {
   forceCollapsed?: number;
   previousAnnotations?: DataPoint[];
   onReannotate?: (point: DataPoint) => void;
+  allClusterData?: DataPoint[]; // New: All cluster data for unified color mapping
 }
 
 const ClusterGroup: React.FC<ClusterGroupProps> = ({
@@ -30,6 +48,7 @@ const ClusterGroup: React.FC<ClusterGroupProps> = ({
   forceCollapsed,
   previousAnnotations,
   onReannotate,
+  allClusterData,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isScrollable, setIsScrollable] = useState(false);
@@ -49,6 +68,31 @@ const ClusterGroup: React.FC<ClusterGroupProps> = ({
     }
     // For very high numbers, use Edge Case format
     return `Edge Case ${num}`;
+  };
+
+  // Get cluster color - corresponds to scatter plot colors below
+  const getClusterColor = (clusterNum: number): string => {
+    // If all cluster data is available, use actual cluster IDs to create domain, ensuring consistency with scatter plot
+    if (allClusterData && Array.isArray(allClusterData)) {
+      const allClusterIds = new Set<string>();
+      allClusterData.forEach(d => allClusterIds.add(String(d.new_cluster_id)));
+      const sortedClusterIds = Array.from(allClusterIds).sort();
+      
+      const colorScale = d3
+        .scaleOrdinal<string, string>()
+        .domain(sortedClusterIds)
+        .range(PLOT_COLORS.BOTTOM);
+      
+      return colorScale(String(clusterNum));
+    }
+    
+    // Fall back to original logic
+    const colorScale = d3
+      .scaleOrdinal<string, string>()
+      .domain(Array.from({length: 9}, (_, i) => String(i))) // 0-8
+      .range(PLOT_COLORS.BOTTOM);
+    
+    return colorScale(String(clusterNum));
   };
 
   const toggleExpand = (e: React.MouseEvent) => {
@@ -168,7 +212,19 @@ const ClusterGroup: React.FC<ClusterGroupProps> = ({
       <div className={styles.clusterHeader} onClick={toggleExpand}>
         <div className={styles.headerLeft}>
           <div className={styles.headerInfo}>
-            <span className={styles.headerCluster}>{getClusterLetter(clusterNumber)}</span>
+            <span 
+              className={styles.headerCluster}
+              style={{
+                backgroundColor: getClusterColor(clusterNumber),
+                color: 'white',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)',
+                fontWeight: '700'
+              }}
+            >
+              {getClusterLetter(clusterNumber)}
+            </span>
             <span className={styles.headerCount}>{items.length} items</span>
           </div>
         </div>

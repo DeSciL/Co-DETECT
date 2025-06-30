@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import styles from "../styles/ExampleItem.module.css";
 import { DataPoint } from "../types/data";
 import { DownOutlined, ReloadOutlined } from '@ant-design/icons';
+import * as d3 from "d3";
 
 interface ExampleItemProps {
   point: DataPoint;
@@ -10,11 +11,43 @@ interface ExampleItemProps {
   previousAnnotations?: DataPoint[];
   hideGuidelineImprovement?: boolean;
   onReannotate?: (point: DataPoint) => void;
+  showAnnotationColor?: boolean;
+  colorScheme?: string[];
+  allAnnotationValues?: string[];
 }
 
-const ExampleItem: React.FC<ExampleItemProps> = ({ point, isSelected, onClick, previousAnnotations, hideGuidelineImprovement, onReannotate }) => {
+const PLOT_COLORS = {
+  SINGLE: [
+    "#3949AB",
+    "#F57C00",
+    "#388E3C",
+    "#C62828",
+    "#6A1B9A",
+    "#0097A7",
+    "#5D4037",
+    "#EF6C00",
+    "#757575",
+    "#283593",
+    "#E91E63",
+    "#4CAF50"
+  ]
+};
+
+const ExampleItem: React.FC<ExampleItemProps> = ({ point, isSelected, onClick, previousAnnotations, hideGuidelineImprovement, onReannotate, showAnnotationColor = false, colorScheme = PLOT_COLORS.SINGLE, allAnnotationValues = [] }) => {
   // Control content expansion/collapse state
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Calculate annotation color
+  const getAnnotationColor = () => {
+    if (!showAnnotationColor) return null;
+    
+    const colorScale = d3
+      .scaleOrdinal<string, string>()
+      .domain(allAnnotationValues.length > 0 ? allAnnotationValues : [String(point.annotation)])
+      .range(colorScheme);
+    
+    return colorScale(String(point.annotation));
+  };
 
   // Handle click on the entire item, trigger both selection and expansion logic
   const handleItemClick = () => {
@@ -66,40 +99,37 @@ const ExampleItem: React.FC<ExampleItemProps> = ({ point, isSelected, onClick, p
 
   // Handle various types of annotation values
   const renderAnnotationValue = () => {
-    // Check if it's a number or "0"/"1"
     const annotationStr = String(point.annotation);
-    if (point.annotation === 1 || annotationStr === "1") {
-      return (
-        <span className={`${styles.value} ${styles.hateSpeech}`}>
-          Positive
-        </span>
-      );
-    } else if (point.annotation === 0 || annotationStr === "0") {
-      return (
-        <span className={`${styles.value} ${styles.notHateSpeech}`}>
-          Negative
-        </span>
-      );
-    } else {
-      // Handle other string values, such as "Unclear due to insufficient guideline"
-      return (
-        <span className={`${styles.value} ${styles.unclearAnnotation}`}>
-          {annotationStr}
-        </span>
-      );
-    }
+    return (
+      <span className={`${styles.value} ${styles.annotationValue}`}>
+        {annotationStr}
+      </span>
+    );
   };
 
-  // Get the compact annotation label for the header
+  // Get the compact annotation label for the header (truncated to 8 characters)
   const getAnnotationLabel = () => {
     const annotationStr = String(point.annotation);
-    if (point.annotation === 1 || annotationStr === "1") {
-      return <span className={`${styles.headerAnnotation} ${styles.headerHateSpeech}`}>1</span>;
-    } else if (point.annotation === 0 || annotationStr === "0") {
-      return <span className={`${styles.headerAnnotation} ${styles.headerNotHateSpeech}`}>0</span>;
-    } else {
-      return <span className={`${styles.headerAnnotation} ${styles.headerUnclear}`}>?</span>;
-    }
+    const truncatedAnnotation = annotationStr.length > 8 ? annotationStr.substring(0, 8) : annotationStr;
+    
+    // Get background color
+    const backgroundColor = showAnnotationColor ? getAnnotationColor() : null;
+    
+    return (
+      <span 
+        className={`${styles.headerAnnotation} ${styles.headerAnnotationValue}`}
+        title={annotationStr} // Show full value on hover
+        style={backgroundColor ? { 
+          backgroundColor,
+          color: 'white', // Use white text to ensure readability on colored background
+          border: `1px solid ${backgroundColor}`,
+                textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)', // Add text shadow to improve readability
+      fontWeight: '600' // Increase font weight
+        } : undefined}
+      >
+        {truncatedAnnotation}
+      </span>
+    );
   };
 
   // Get a preview of the original text

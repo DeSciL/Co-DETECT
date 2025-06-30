@@ -73,7 +73,7 @@ export interface StoredData {
   previousGuidelines?: string[];
 }
 
-// Backend response types (更准确地反映后端实际格式)
+// Backend response types (more accurately reflects actual backend format)
 interface BackendDataPoint {
   text_to_annotate?: string;
   uid?: string;
@@ -90,16 +90,16 @@ interface BackendDataPoint {
   [key: string]: unknown; // Allow additional fields
 }
 
-// 更新后的响应类型定义
+// Updated response type definitions
 export interface ReclusterResponse {
   suggestions?: Record<string, string>;
   improvement_clusters?: DataPoint[];
 }
 
-// 或者如果recluster_response.json确实是数组结构，定义特殊类型
+// Or if recluster_response.json is indeed array structure, define special type
 export type ReclusterResponseArray = [
-  Record<string, string>, // suggestions对象
-  DataPoint[] // improvement_clusters数组
+  Record<string, string>, // suggestions object
+  DataPoint[] // improvement_clusters array
 ];
 
 // Adapter function to map backend data to frontend DataPoint interface
@@ -111,7 +111,7 @@ export function mapBackendDataToDataPoint(item: BackendDataPoint | DataPoint): D
   
   const backendItem = item as BackendDataPoint;
   
-  // 优先使用 cluster 字段，fallback 到 edge_case_id
+      // Prioritize cluster field, fallback to edge_case_id
   let clusterId = 0;
   if (typeof backendItem.cluster === 'number') {
     clusterId = backendItem.cluster;
@@ -131,15 +131,15 @@ export function mapBackendDataToDataPoint(item: BackendDataPoint | DataPoint): D
     return `text_${Math.abs(hash)}`;
   };
   
-  // 标准化 annotation 字段
-  let normalizedAnnotation = 0;
+      // Keep original annotation field content, do not convert to number
+  let normalizedAnnotation: number | string = 0;
   if (typeof backendItem.annotation === 'string') {
-    normalizedAnnotation = parseInt(backendItem.annotation, 10) || 0;
+          normalizedAnnotation = backendItem.annotation; // Keep complete string
   } else if (typeof backendItem.annotation === 'number') {
     normalizedAnnotation = backendItem.annotation;
   }
   
-  // 标准化 new_edge_case 字段
+      // Normalize new_edge_case field
   let normalizedEdgeCase = false;
   if (typeof backendItem.new_edge_case === 'boolean') {
     normalizedEdgeCase = backendItem.new_edge_case;
@@ -167,9 +167,9 @@ export function mapBackendDataToDataPoint(item: BackendDataPoint | DataPoint): D
   return mappedItem;
 }
 
-// 处理特殊的 recluster_response.json 结构
+  // Handle special recluster_response.json structure
 export function parseReclusterResponse(data: unknown): ReclusterResponse {
-  // 如果是正常的对象格式
+      // If it's normal object format
   if (data && typeof data === 'object' && !Array.isArray(data)) {
     const obj = data as Record<string, unknown>;
     return {
@@ -180,7 +180,7 @@ export function parseReclusterResponse(data: unknown): ReclusterResponse {
     };
   }
   
-  // 如果是数组格式 [suggestions_obj, data_array]
+      // If it's array format [suggestions_obj, data_array]
   if (Array.isArray(data) && data.length >= 2) {
     const [suggestionsObj, clustersArray] = data;
     return {
@@ -191,7 +191,7 @@ export function parseReclusterResponse(data: unknown): ReclusterResponse {
     };
   }
   
-  // 如果是数组格式但只有一个元素是对象包含suggestions
+      // If it's array format but only one element is object containing suggestions
   if (Array.isArray(data) && data.length === 1 && data[0].suggestions) {
     return {
       suggestions: data[0].suggestions || {},
@@ -199,7 +199,7 @@ export function parseReclusterResponse(data: unknown): ReclusterResponse {
     };
   }
   
-  // 默认返回空结构
+  // Default return empty structure
   return {
     suggestions: {},
     improvement_clusters: []

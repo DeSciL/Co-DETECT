@@ -1738,6 +1738,7 @@ const Dashboard = () => {
                   savedSuggestions={savedSuggestions}
                   onRemoveSuggestion={handleRemoveSuggestion}
                   onEditSuggestion={handleEditSuggestion}
+                  allClusterData={improvementClusters}
                 />
               </div>
             )}
@@ -1800,10 +1801,9 @@ const Dashboard = () => {
               topPlot={{
                 data: annotations,
                 showSharedLegend: true,
-                showClusterLegend: true,
                 forcedAxes: true,
-                clusterPrefix: "", // Use empty prefix
-                // Custom function to map cluster IDs from 0-based to 1-based in the color scale
+                title: "Main Clusters",
+                // Color scheme for annotation values
                 colorScheme: [
                   "#1f77b4",
                   "#ff7f0e",
@@ -1815,14 +1815,14 @@ const Dashboard = () => {
                   "#7f7f7f",
                   "#bcbd22",
                   "#17becf",
-                ], // Blue color scheme
+                ],
               }}
               bottomPlot={{
                 data: improvementClusters,
                 showSharedLegend: false,
-                showClusterLegend: true,
                 forcedAxes: true,
-                clusterPrefix: "", // Empty prefix, will use letter conversion
+                title: "Edge Case Clusters",
+                // Color scheme for annotation values
                 colorScheme: [
                   "#8dd3c7",
                   "#ffffb3",
@@ -1834,7 +1834,7 @@ const Dashboard = () => {
                   "#fccde5",
                   "#d9d9d9",
                   "#bc80bd",
-                ], // Different color scheme
+                ],
               }}
               onPointClick={handlePointSelect}
               selectedPoint={selectedPoint}
@@ -1913,6 +1913,19 @@ const Dashboard = () => {
                   onAddExample={handleAddExample}
                   previousAnnotations={previousAnnotations}
                   onReannotate={handleReannotateExample}
+                  showAnnotationColor={true}
+                  colorScheme={[
+                    "#1f77b4",
+                    "#ff7f0e",
+                    "#2ca02c",
+                    "#d62728",
+                    "#9467bd",
+                    "#8c564b",
+                    "#e377c2",
+                    "#7f7f7f",
+                    "#bcbd22",
+                    "#17becf",
+                  ]}
                 />
               </div>
             )}

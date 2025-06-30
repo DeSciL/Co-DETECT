@@ -13,6 +13,8 @@ interface PointDetailsProps {
   onAddExample?: (example: Partial<DataPoint>) => void;
   previousAnnotations?: DataPoint[];
   onReannotate?: (point: DataPoint) => void;
+  showAnnotationColor?: boolean;
+  colorScheme?: string[];
 }
 
 type SortOption = "new" | "confidence" | "confidence_increase" | "confidence_decrease" | "class" | "alphabetical";
@@ -24,9 +26,10 @@ const PointDetails: React.FC<PointDetailsProps> = ({
   onPointSelect, 
   onAddExample,
   previousAnnotations,
-  onReannotate
+  onReannotate,
+  showAnnotationColor = false,
+  colorScheme
 }) => {
-
 
   const selectedItemRef = useRef<HTMLDivElement>(null);
   const [sortOption, setSortOption] = useState<SortOption>("new");
@@ -83,8 +86,6 @@ const PointDetails: React.FC<PointDetailsProps> = ({
       }
     });
 
-
-
     return changesMap;
   }, [data, previousAnnotations]);
 
@@ -108,8 +109,6 @@ const PointDetails: React.FC<PointDetailsProps> = ({
     // Then sort the filtered data
     return [...filteredData].sort((a, b) => {
       let compareResult = 0;
-      
-
       
       switch (sortOption) {
         case "new": {
@@ -359,8 +358,6 @@ const PointDetails: React.FC<PointDetailsProps> = ({
 
       if (avgPrev === null || avgCurr === null) return null;
       
-
-      
       return avgCurr - avgPrev;
     })();
 
@@ -394,8 +391,6 @@ const PointDetails: React.FC<PointDetailsProps> = ({
       })();
 
       if (avgPrev === null || avgCurr === null) return null;
-      
-
       
       return avgCurr - avgPrev;
     })();
@@ -444,6 +439,15 @@ const PointDetails: React.FC<PointDetailsProps> = ({
     }
   };
 
+  // Calculate all annotation values for unified color mapping
+  const allAnnotationValues = useMemo(() => {
+    if (!showAnnotationColor || !Array.isArray(data)) return [];
+    
+    const annotationSet = new Set<string>();
+    data.forEach(item => annotationSet.add(String(item.annotation)));
+    return Array.from(annotationSet).sort();
+  }, [data, showAnnotationColor]);
+
   if (!Array.isArray(data) || data.length === 0) {
     return (
       <div className={styles.container}>
@@ -465,7 +469,7 @@ const PointDetails: React.FC<PointDetailsProps> = ({
 
   return (
     <div className={styles.container}>
-      {/* 隐藏按钮，但保留其功能，仅作为Dashboard中按钮的触发目标 */}
+              {/* Hide button but keep its functionality, only as trigger target for Dashboard buttons */}
       {onAddExample && (
         <Button 
           type="primary"
@@ -616,6 +620,9 @@ const PointDetails: React.FC<PointDetailsProps> = ({
                 onClick={() => onPointSelect(item)}
                 previousAnnotations={previousAnnotations}
                 onReannotate={onReannotate}
+                showAnnotationColor={showAnnotationColor}
+                colorScheme={colorScheme}
+                allAnnotationValues={allAnnotationValues}
               />
             </div>
           );

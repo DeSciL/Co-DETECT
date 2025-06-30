@@ -260,7 +260,7 @@ export class DataManager {
         reclusterResponse.json()
       ]);
 
-      // 使用新的parseReclusterResponse函数处理特殊格式
+      // Use the new parseReclusterResponse function to handle special format
       const reclusterData = parseReclusterResponse(reclusterRawData);
 
       const demoData: StoredData = {

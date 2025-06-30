@@ -9,7 +9,7 @@
 
 .emptyContent {
   flex: 1;
-  /* 空的div，仅占用空间但不显示内容 */
+  /* Empty div, only occupies space but displays no content */
 }
 
 .summaryList {

@@ -28,7 +28,7 @@ os.makedirs("models", exist_ok=True)
 
 def clean_json_data(data):
     """
-    递归清理数据中的无效浮点数值，将NaN和Infinity替换为None
+    Recursively clean invalid floating point values in data, replacing NaN and Infinity with None
     """
     if isinstance(data, dict):
         return {k: clean_json_data(v) for k, v in data.items()}
