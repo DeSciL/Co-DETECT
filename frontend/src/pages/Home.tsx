@@ -130,30 +130,32 @@ const Home = () => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const content = e.target?.result as string;
-      const lines = content.split('\n');
       
-      if (lines.length < 2) {
-        setParseError("CSV file must have at least a header row and one data row");
-        return;
-      }
-      
-      // Use a more permissive parsing for the header to find the text_to_annotate column
-      const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
-      const textColumnIndex = headers.indexOf("text_to_annotate");
-      
-      if (textColumnIndex === -1) {
-        setParseError("CSV file must contain a column named 'text_to_annotate'");
-        return;
-      }
-      
-      // Extract texts from the text column
-      const examples = lines.slice(1)
-        .filter(line => line.trim() !== '')
-        .map(line => {
-          try {
-            // For each line, we'll extract the text column which may be quoted or not
-            const columns = parseCSVLine(line);
-            let text = columns[textColumnIndex]?.trim() || "";
+      try {
+        // Use a proper CSV parser that can handle multi-line fields
+        const records = parseCSVContent(content);
+        
+        if (records.length < 2) {
+          setParseError("CSV file must have at least a header row and one data row");
+          return;
+        }
+        
+        const headers = records[0].map(h => h.trim().toLowerCase());
+        const textColumnIndex = headers.indexOf("text_to_annotate");
+        
+        if (textColumnIndex === -1) {
+          setParseError("CSV file must contain a column named 'text_to_annotate'");
+          return;
+        }
+        
+        // Extract unique texts from the text column
+        const textSet = new Set<string>();
+        const examples: string[] = [];
+        
+        for (let i = 1; i < records.length; i++) {
+          const record = records[i];
+          if (record.length > textColumnIndex) {
+            let text = record[textColumnIndex]?.trim() || "";
             
             // Clean invalid control characters from the text
             const controlChars = Array.from({length: 32}, (_, i) => String.fromCharCode(i))
@@ -165,56 +167,78 @@ const Home = () => {
               }
             }
             
-            return text;
-          } catch (error) {
-            console.error("Error parsing CSV line:", line, error);
-            return ""; // Return empty string for problematic lines
+            // Add to examples if not empty and not duplicate
+            if (text !== "" && !textSet.has(text)) {
+              textSet.add(text);
+              examples.push(text);
+            }
           }
-        })
-        .filter(text => text !== "");
-      
+        }
 
-      
-      setCsvExamples(examples);
+        console.log(`CSV parsed: ${examples.length} unique texts extracted from ${records.length - 1} logical records`);
+        setCsvExamples(examples);
+        
+      } catch (error) {
+        console.error("Error parsing CSV:", error);
+        setParseError(`Error parsing CSV file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
     };
     reader.readAsText(file);
   };
-  
-  // Helper function to properly parse CSV lines with quoted fields
-  const parseCSVLine = (line: string): string[] => {
-    const result: string[] = [];
+
+  // Proper CSV parser that handles quoted fields with newlines
+  const parseCSVContent = (content: string): string[][] => {
+    const records: string[][] = [];
+    let currentRecord: string[] = [];
     let currentField = "";
     let inQuotes = false;
+    let i = 0;
     
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
+    while (i < content.length) {
+      const char = content[i];
       
-      // Check for beginning or end of quoted field
       if (char === '"') {
-        // If this is an escaped quote (double quote) inside a quoted field
-        if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
-          currentField += '"'; // Add a single quote to the field
-          i++; // Skip the next quote
+        if (inQuotes && i + 1 < content.length && content[i + 1] === '"') {
+          // Escaped quote
+          currentField += '"';
+          i += 2;
         } else {
-          // Toggle the quote state
+          // Toggle quote state
           inQuotes = !inQuotes;
-          // We don't add the quote character to the field value
+          i++;
         }
-      }
-      // Check for field separator (comma)
-      else if (char === ',' && !inQuotes) {
-        result.push(currentField);
+      } else if (char === ',' && !inQuotes) {
+        // Field separator
+        currentRecord.push(currentField);
         currentField = "";
-      }
-      // Add any other character to the current field
-      else {
+        i++;
+      } else if ((char === '\n' || (char === '\r' && i + 1 < content.length && content[i + 1] === '\n')) && !inQuotes) {
+        // Record separator (not inside quotes)
+        currentRecord.push(currentField);
+        records.push(currentRecord);
+        currentRecord = [];
+        currentField = "";
+        
+        // Skip \r\n or just \n
+        if (char === '\r') {
+          i += 2;
+        } else {
+          i++;
+        }
+      } else {
+        // Regular character
         currentField += char;
+        i++;
       }
     }
     
-    // Add the last field
-    result.push(currentField);
-    return result;
+    // Add the last field and record if not empty
+    if (currentField !== "" || currentRecord.length > 0) {
+      currentRecord.push(currentField);
+      records.push(currentRecord);
+    }
+    
+    return records;
   };
   
   const handleFileChange = (files: FileList | null) => {
@@ -921,5 +945,5 @@ const Home = () => {
     </div>
   );
 };
-
-export default Home; 
+  
+  export default Home;

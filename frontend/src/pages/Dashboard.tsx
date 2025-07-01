@@ -755,6 +755,17 @@ const Dashboard = () => {
     return combinedGuidelineString;
   }, [requestBody?.annotation_guideline, savedSuggestions]);
 
+  // Helper function to format timestamp for file names
+  const formatTimestamp = useCallback(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}_${hours}-${minutes}`;
+  }, []);
+
   // Handler for downloading guidelines as txt file
   const handleDownloadGuidelines = useCallback(() => {
     if (!requestBody?.annotation_guideline) {
@@ -767,14 +778,14 @@ const Dashboard = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `annotation_guidelines_${new Date().toISOString().split('T')[0]}.txt`;
+    link.download = `annotation_guidelines_${formatTimestamp()}.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     
     message.success("Guidelines downloaded successfully");
-  }, [requestBody?.annotation_guideline, prepareCompleteGuideline]);
+  }, [requestBody?.annotation_guideline, prepareCompleteGuideline, formatTimestamp]);
 
   // Handler for downloading annotation data as JSON file
   const handleDownloadData = useCallback(() => {
@@ -807,7 +818,7 @@ const Dashboard = () => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `annotation_data_${requestBody?.task_id || 'export'}_${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `annotation_data_${requestBody?.task_id || 'export'}_${formatTimestamp()}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -818,7 +829,7 @@ const Dashboard = () => {
       console.error("Error downloading data:", error);
       message.error("Failed to download annotation data");
     }
-  }, [annotations, improvementClusters, suggestions, savedSuggestions, previousAnnotations, previousGuidelines, requestBody]);
+  }, [annotations, improvementClusters, suggestions, savedSuggestions, previousAnnotations, previousGuidelines, requestBody, formatTimestamp]);
 
   // Handler for adding a new example through manual input
   const handleShowAddExampleModal = useCallback(() => {

@@ -229,8 +229,30 @@ async def synthesize_guideline_improvements(df, guideline_text, task_id: str = N
         reduced = pca.transform(embeddings)
         df["pca_x"] = reduced[:, 0]
         df["pca_y"] = reduced[:, 1]
-        labels = sc_kmeans.predict(np.array(embeddings))
-        df["cluster_id"] = labels
+        
+        # Check if current data size is compatible with the saved model's constraints
+        try:
+            labels = sc_kmeans.predict(np.array(embeddings))
+            df["cluster_id"] = labels
+        except ValueError as e:
+            if "size_min and size_max" in str(e):
+                logger.warning(f"Current data size ({data_size}) incompatible with saved model constraints. Creating new model...")
+                # Recreate the model with appropriate constraints for current data size
+                if data_size <= 20:
+                    size_min, size_max = None, None
+                elif 20 < data_size <= 40:
+                    size_min, size_max = 5, 20
+                else:
+                    size_min, size_max = 10, 20
+                sc_kmeans = KMeansConstrained(n_clusters=actual_n_clusters, size_min=size_min, size_max=size_max, random_state=42)
+                labels = sc_kmeans.fit_predict(embeddings)
+                df["cluster_id"] = labels
+                
+                # Save the new model
+                with open(f'models/kmeans_model_{task_id}_cluster{round_string}.pkl', 'wb') as f:
+                    pickle.dump(sc_kmeans, f)
+            else:
+                raise e
 
     new_rules = OrderedDict()
 
