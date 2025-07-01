@@ -85,7 +85,7 @@ Open [**Local Host**](http://localhost:5173)
 - **Left Panel**: 
   - **Previous Guidelines**: Review earlier guideline versions
   ![Previous Guidelines](illustration_figures/previous_guideline.png)
-  - **Current Guidelines**: Edit task description and labels
+  - **Current Guidelines**: Edit task description and labels, download guidelines as .txt file
   ![Current Guidelines](illustration_figures/current_guideline.png)
   - **Edge Case Handling**: Saved improvement rules
   ![Edge Case Handling](illustration_figures/edge_case_handling.png)
@@ -94,6 +94,7 @@ Open [**Local Host**](http://localhost:5173)
   ![Upper plot](illustration_figures/upper_plot.png)
   - **Lower plot**: Edge cases needing attention ↔ **Right: Suggested Edge Cases**
   ![Lower plot](illustration_figures/lower_plot.png)
+  - **Download Annotation Data**: Export complete annotation results as .json file
 - **Right Panel**:
   - **All Examples**: Click points or examples to see details
   ![All Example](illustration_figures/all_examples.png)

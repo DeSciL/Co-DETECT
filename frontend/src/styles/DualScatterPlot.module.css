@@ -178,13 +178,13 @@
 }
 
 .plotTitle {
-  position: absolute;
-  top: 8px;
-  left: 0;
+  position: relative;
   width: 100%;
   text-align: center;
   z-index: 2;
   pointer-events: none;
+  margin-top: -25px; /* 让标题更靠近x轴 */
+  margin-bottom: 8px;
 }
 
 .plotTitle h3 {
@@ -651,13 +651,13 @@
 
 /* Add styles for plot titles */
 .plotTitle {
-  position: absolute;
-  top: 8px;
-  left: 0;
+  position: relative;
   width: 100%;
   text-align: center;
   z-index: 10;
   pointer-events: none;
+  margin-top: -38px; /* 让标题更靠近x轴 */
+  margin-bottom: 8px;
 }
 
 .plotTitle h3 {

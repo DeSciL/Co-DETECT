@@ -8,8 +8,7 @@ import {
   Typography, 
   Spin,
   message,
-  Tooltip,
-  Space
+  Tooltip
 } from 'antd';
 import { 
   UploadOutlined, 
@@ -37,8 +36,7 @@ const Home = () => {
   const [task, setTask] = useState("");
   const [labels, setLabels] = useState<string[]>([]);
   const [newLabel, setNewLabel] = useState("");
-  const [textToAnnotate, setTextToAnnotate] = useState("");
-  const [uploadMethod, setUploadMethod] = useState<"paste" | "upload">("upload");
+  const [csvExamples, setCsvExamples] = useState<string[]>([]);
   const [parseError, setParseError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -49,7 +47,6 @@ const Home = () => {
     task?: string;
     labels?: string;
     taskId?: string;
-    textToAnnotate?: string;
     files?: string;
   }>({});
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
@@ -114,14 +111,9 @@ const Home = () => {
               if (labels.length > 0) setLabels(labels);
             }
             
-            // If there were examples, join them back for the textarea
+            // If there were examples, store them for CSV processing
             if (Array.isArray(savedData.requestData.examples)) {
-              setTextToAnnotate(savedData.requestData.examples.join('\n\n'));
-            }
-            
-            // If upload method was stored
-            if (savedData.requestData.uploadMethod) {
-              setUploadMethod(savedData.requestData.uploadMethod);
+              setCsvExamples(savedData.requestData.examples);
             }
           }
         }
@@ -183,7 +175,7 @@ const Home = () => {
       
 
       
-      setTextToAnnotate(examples.join('\n\n'));
+      setCsvExamples(examples);
     };
     reader.readAsText(file);
   };
@@ -267,12 +259,8 @@ const Home = () => {
       errors.taskId = "Task ID is required";
     }
     
-    if (uploadMethod === "paste" && !textToAnnotate.trim()) {
-      errors.textToAnnotate = "Please enter text to annotate";
-    }
-    
-    if (uploadMethod === "upload" && files.length === 0) {
-      errors.files = "Please select a file to upload";
+    if (files.length === 0) {
+      errors.files = "Please select a CSV file to upload";
     }
     
     setFieldErrors(errors);
@@ -294,11 +282,8 @@ const Home = () => {
     // Clear previously saved data
     await dataManager.clearData();
     
-    // Convert text to annotate into an array of examples
-    const examples = textToAnnotate
-      .split(/\n\s*\n|\r\n\s*\r\n/)  // Split by empty lines
-      .map(text => text.trim())
-      .filter(text => text !== "");
+    // Use examples from CSV file
+    const examples = csvExamples;
     
     // Combine task and labels into annotation_guideline
     const annotation_guideline = getAnnotationGuideline();
@@ -306,7 +291,6 @@ const Home = () => {
     // Use user-provided task_id instead of generating one
     const finalTaskId = taskId.trim() || `annotation_task_${Date.now()}`; // Fallback if empty
     
-
 
     // Prepare the request body for annotation
     const annotationRequestBody: AnnotationRequest = {
@@ -454,7 +438,7 @@ const Home = () => {
         requestData: {
           examples,
           annotation_guideline,  // Use the string format
-          uploadMethod,
+          uploadMethod: "upload" as const,
           task_id: finalTaskId,  // Include the user-provided task_id
         }
       };
@@ -522,7 +506,7 @@ const Home = () => {
       const requestData = {
         examples: annotationData.examples || [],
         annotation_guideline: demoGuidelineString,
-        uploadMethod: "paste" as const,
+        uploadMethod: "upload" as const,
         task_id: taskId.trim() || "demo_task", // Include task_id for demo
       };
       
@@ -563,8 +547,7 @@ const Home = () => {
   const getCurrentStep = () => {
     if (!task.trim()) return 0;
     if (labels.length === 0) return 1;
-    if (uploadMethod === "paste" && !textToAnnotate.trim()) return 2;
-    if (uploadMethod === "upload" && files.length === 0) return 2;
+    if (files.length === 0) return 2;
     return 3;
   };
   
@@ -638,24 +621,6 @@ const Home = () => {
       e.preventDefault();
       handleCancelEditLabel(e);
     }
-  };
-
-  // Function to load sample examples from sample.json
-  const loadSampleExamples = () => {
-    setIsLoading(true);
-    fetch('/sample.json')
-      .then(response => response.json())
-      .then(data => {
-        if (data.examples && Array.isArray(data.examples)) {
-          setTextToAnnotate(data.examples.join('\n\n'));
-        }
-        setIsLoading(false);
-      })
-      .catch(error => {
-        console.error("Error loading sample.json:", error);
-        setApiError("Failed to load sample examples");
-        setIsLoading(false);
-      });
   };
 
   return (
@@ -845,102 +810,54 @@ const Home = () => {
           
           <div className={styles.contentPanel}>
             <div className={styles.sectionHeader}>
-              <h2>Text to Annotate</h2>
-              <Tooltip title="Upload CSV file or paste text directly. Each line or paragraph will be treated as a separate annotation sample.">
+              <h2>Upload CSV File</h2>
+              <Tooltip title="Upload a CSV file with a 'text_to_annotate' column. Each row will be treated as a separate annotation sample.">
                 <InfoCircleOutlined className={styles.headerInfoIcon} />
               </Tooltip>
             </div>
             
             <div className={styles.contentContainer} data-tour="text-input">
-              <div className={styles.uploadMethodToggle}>
-                <div className={styles.uploadModeSection}>
-                  <Space.Compact>
-                    <Button
-                      type={uploadMethod === "paste" ? "primary" : "default"}
-                      onClick={() => setUploadMethod("paste")}
-                      disabled={isLoading}
-                      className={`${styles.toggleButton} ${uploadMethod === "paste" ? styles.activeToggle : ""}`}
-                      icon={<span className={styles.toggleIcon}>✏️</span>}
-                    >
-                      Paste Text
-                    </Button>
-                    <Button
-                      type={uploadMethod === "upload" ? "primary" : "default"}
-                      onClick={() => setUploadMethod("upload")}
-                      disabled={isLoading}
-                      className={`${styles.toggleButton} ${uploadMethod === "upload" ? styles.activeToggle : ""}`}
-                      icon={<span className={styles.toggleIcon}>📄</span>}
-                    >
-                      Upload File
-                    </Button>
-                  </Space.Compact>
-                </div>
-              </div>
-              
               <div className={styles.contentInputArea}>
-                {uploadMethod === "paste" ? (
-                  <>
-                    <TextArea
-                      className={styles.textareaInput}
-                      placeholder="Paste your text here..."
-                      value={textToAnnotate}
-                      onChange={(e) => {
-                        setTextToAnnotate(e.target.value);
-                        clearFieldError('textToAnnotate');
-                      }}
-                      disabled={isLoading}
-                      autoSize={{ minRows: 5, maxRows: 10 }}
-                    />
-                    <span
-                      onClick={loadSampleExamples}
-                      className={styles.loadSamplesButton}
-                      style={{ cursor: isLoading ? 'not-allowed' : 'pointer' }}
-                    >
-                      Load Sample Examples
-                    </span>
-                  </>
-                ) : (
-                  <div
-                    className={`${styles.dropZone} ${isDragging ? styles.dragging : ''} ${files.length > 0 ? styles.hasFiles : ''}`}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setIsDragging(true);
+                <div
+                  className={`${styles.dropZone} ${isDragging ? styles.dragging : ''} ${files.length > 0 ? styles.hasFiles : ''}`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                  }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                    handleFileChange(e.dataTransfer.files);
+                  }}
+                >
+                  <Upload
+                    beforeUpload={() => false}
+                    onChange={({ fileList }) => {
+                      if (fileList.length > 0 && fileList[0].originFileObj) {
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(fileList[0].originFileObj);
+                        handleFileChange(dataTransfer.files);
+                      }
                     }}
-                    onDragLeave={() => setIsDragging(false)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setIsDragging(false);
-                      handleFileChange(e.dataTransfer.files);
-                    }}
+                    disabled={isLoading}
+                    showUploadList={false}
                   >
-                    <Upload
-                      beforeUpload={() => false}
-                      onChange={({ fileList }) => {
-                        if (fileList.length > 0 && fileList[0].originFileObj) {
-                          const dataTransfer = new DataTransfer();
-                          dataTransfer.items.add(fileList[0].originFileObj);
-                          handleFileChange(dataTransfer.files);
-                        }
-                      }}
-                      disabled={isLoading}
-                      showUploadList={false}
-                    >
-                      <p className={styles.uploadIcon}>
-                        <UploadOutlined />
-                      </p>
-                      <p className={styles.dropZoneText}>
-                        {files.length > 0 
-                          ? `${files.length} file${files.length !== 1 ? 's' : ''} selected` 
-                          : 'Drop text file or click to browse'}
-                      </p>
-                    </Upload>
-                    
-                    <div className={styles.fileFormatInfo}>
-                      <p>Supported format: CSV</p>
-                      <p><strong>Note:</strong> CSV files must contain a column named "text_to_annotate"</p>
-                    </div>
+                    <p className={styles.uploadIcon}>
+                      <UploadOutlined />
+                    </p>
+                    <p className={styles.dropZoneText}>
+                      {files.length > 0 
+                        ? `${files.length} file${files.length !== 1 ? 's' : ''} selected` 
+                        : 'Drop CSV file or click to browse'}
+                    </p>
+                  </Upload>
+                  
+                  <div className={styles.fileFormatInfo}>
+                    <p>Supported format: CSV</p>
+                    <p><strong>Note:</strong> CSV files must contain a column named "text_to_annotate"</p>
                   </div>
-                )}
+                </div>
                 
                 {parseError && (
                   <div className={styles.errorMessage}>
@@ -948,13 +865,7 @@ const Home = () => {
                   </div>
                 )}
                 
-                {hasAttemptedSubmit && uploadMethod === "paste" && fieldErrors.textToAnnotate && (
-                  <div className={styles.errorMessage}>
-                    {fieldErrors.textToAnnotate}
-                  </div>
-                )}
-                
-                {hasAttemptedSubmit && uploadMethod === "upload" && fieldErrors.files && (
+                {hasAttemptedSubmit && fieldErrors.files && (
                   <div className={styles.errorMessage}>
                     {fieldErrors.files}
                   </div>
@@ -966,7 +877,7 @@ const Home = () => {
                   </div>
                 )}
                 
-                {uploadMethod === "upload" && files.length > 0 && (
+                {files.length > 0 && (
                   <div className={styles.fileList}>
                     <Title level={5} className={styles.fileListTitle}>Selected Files:</Title>
                     <ul>

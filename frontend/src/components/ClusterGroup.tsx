@@ -97,7 +97,13 @@ const ClusterGroup: React.FC<ClusterGroupProps> = ({
 
   const toggleExpand = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsExpanded(!isExpanded);
+    const newExpandedState = !isExpanded;
+    setIsExpanded(newExpandedState);
+    
+    // If collapsing manually, update lastForceCollapseTime to prevent auto-expansion
+    if (!newExpandedState) {
+      setLastForceCollapseTime(Date.now());
+    }
   };
 
   // Check if content is scrollable on mount and resize
@@ -170,7 +176,11 @@ const ClusterGroup: React.FC<ClusterGroupProps> = ({
     }
   }, [selectedPoint, isExpanded, items, suggestion]);
 
+  // Track the last time forceCollapsed was triggered
+  const [lastForceCollapseTime, setLastForceCollapseTime] = useState(0);
+
   // Auto-expand cluster if selectedPoint belongs to this cluster
+  // But not if forceCollapsed was recently triggered (within 1 second)
   useEffect(() => {
     if (selectedPoint && !isExpanded) {
       const selectedItem = items.find(item => 
@@ -179,10 +189,17 @@ const ClusterGroup: React.FC<ClusterGroupProps> = ({
       );
       
       if (selectedItem) {
-        setIsExpanded(true);
+        // Check if forceCollapsed was recently triggered
+        const now = Date.now();
+        const timeSinceForceCollapse = now - lastForceCollapseTime;
+        
+        // Only auto-expand if forceCollapsed wasn't triggered recently (within 1 second)
+        if (timeSinceForceCollapse > 1000) {
+          setIsExpanded(true);
+        }
       }
     }
-  }, [selectedPoint, items, isExpanded]);
+  }, [selectedPoint, items, isExpanded, lastForceCollapseTime]);
 
   // Handler for save button click - now opens the confirmation modal instead
   const handleSaveButtonClick = (e: React.MouseEvent) => {
@@ -204,6 +221,7 @@ const ClusterGroup: React.FC<ClusterGroupProps> = ({
   useEffect(() => {
     if (forceCollapsed && forceCollapsed > 0) {
       setIsExpanded(false);
+      setLastForceCollapseTime(forceCollapsed);
     }
   }, [forceCollapsed]);
 

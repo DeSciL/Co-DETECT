@@ -1768,7 +1768,7 @@ const Dashboard = () => {
                 onClick={handleDownloadData}
                 aria-label="Download annotation data"
               >
-                Download
+                Download Annotation Data
               </button>
             </Tooltip>
           </div>

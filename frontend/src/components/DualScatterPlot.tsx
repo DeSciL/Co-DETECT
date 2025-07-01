@@ -1313,27 +1313,27 @@ const DualScatterPlot = ({
         
         {/* Top plot */}
         <div className={isSingleMode ? styles.singlePlotArea : styles.plotArea} ref={topPlotRef}>
+          <div className={styles.svgContainer}>
+            <svg ref={topSvgRef} className={styles.scatterPlot} />
+          </div>
           {topPlot.title && (
             <div className={styles.plotTitle}>
               <h3>{topPlot.title}</h3>
             </div>
           )}
-          <div className={styles.svgContainer}>
-            <svg ref={topSvgRef} className={styles.scatterPlot} />
-          </div>
         </div>
         
         {/* Bottom plot - only render if not in single mode */}
         {!isSingleMode && bottomPlot && (
           <div className={styles.plotArea} ref={bottomPlotRef}>
+            <div className={styles.svgContainer}>
+              <svg ref={bottomSvgRef} className={styles.scatterPlot} />
+            </div>
             {bottomPlot.title && (
               <div className={styles.plotTitle}>
                 <h3>{bottomPlot.title}</h3>
               </div>
             )}
-            <div className={styles.svgContainer}>
-              <svg ref={bottomSvgRef} className={styles.scatterPlot} />
-            </div>
           </div>
         )}
       </div>
