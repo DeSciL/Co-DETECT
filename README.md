@@ -1,6 +1,8 @@
 # Co-DETECT
 ***Co-DETECT***: **Co**llaborative **D**iscovery of **E**dge cases in **TE**xt **C**lassifica**T**ion
 
+### [[Demonstration Video]](https://youtu.be/jR66Idbd-1I)
+
 ### Environment Requirements
 
 - Node.js: v22.11.0
