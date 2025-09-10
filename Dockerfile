@@ -10,8 +10,8 @@ RUN npm run build
 FROM python:3.12-slim
 WORKDIR /app
 
-# Install dependencies
-RUN apt-get update && apt-get install -y gcc g++ curl && rm -rf /var/lib/apt/lists/*
+# Install build dependencies for Python packages (scikit-learn, sentence-transformers need gcc/g++)
+RUN apt-get update && apt-get install -y gcc g++ && rm -rf /var/lib/apt/lists/*
 COPY annotation_fastapi/requirements.txt ./
 RUN pip install -r requirements.txt
 
