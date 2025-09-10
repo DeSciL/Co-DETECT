@@ -1,0 +1,80 @@
+name: Docker CI
+
+on:
+  push:
+    tags:     # Pattern matched against refs/tags
+      - '*'   # Push events to every tag not containing /
+
+  # push:
+  #   branches: [ "main" ]
+  # pull_request:
+  #   branches: [ "main" ]
+
+  # Allows to run this workflow from the Actions tab
+  # Selet a tag to build a versioned docker release
+  workflow_dispatch:
+
+env:
+  FOLDER: "."
+  REGISTRY: ${{ secrets.DESCIL_REGISTRY_URL }}
+  ORG: descil
+  REPO: datascience
+  LABEL: tutorshop
+  NS: led
+
+jobs:
+  build:
+    runs-on: descil-runners
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'true'
+        token: ${{ secrets.TUTORSHOP_GITHUB_PAT }}
+
+    - name: Get latest tag pushed
+      id: tag
+      uses: 32teeth/action-github-tag@v1.0.7
+
+    - name: Return latest tag pushed
+      run: echo ${{steps.tag.outputs.tag}}
+
+    - name: Login to GitLab
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ secrets.DESCIL_REGISTRY_URL }}
+        username: ${{ secrets.DESCIL_REGISTRY_USER }}
+        password: ${{ secrets.DESCIL_REGISTRY_PASSWORD }}
+
+    - name: Build the Docker image
+      run: docker build . --file $FOLDER/Dockerfile --tag $REGISTRY/$ORG/$REPO/$LABEL:${{steps.tag.outputs.tag}} --build-arg http_proxy="http://proxy.ethz.ch:3128" --build-arg https_proxy="http://proxy.ethz.ch:3128"
+
+    - name: Push the Docker image
+      run: docker push $REGISTRY/$ORG/$REPO/$LABEL:${{steps.tag.outputs.tag}}
+
+    - name: Tag the Docker image
+      run: docker tag $REGISTRY/$ORG/$REPO/$LABEL:${{steps.tag.outputs.tag}} $REGISTRY/$ORG/$REPO/$LABEL:latest
+
+    - name: Push Docker tag
+      run: docker push $REGISTRY/$ORG/$REPO/$LABEL:latest
+
+  deploy:
+    # The type of runner that the job will run on
+    runs-on: descil-runners
+
+    needs:
+      - build
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      - uses: azure/setup-kubectl@v3
+        id: install
+
+      - uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.K8S_KUBECONFIG }}
+
+      - name: Redeploy $NS-$LABEL
+        run: kubectl rollout restart deployment $NS-$LABEL -n $NS
