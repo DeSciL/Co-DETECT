@@ -13,7 +13,7 @@ WORKDIR /app
 # Install build dependencies for Python packages (scikit-learn, sentence-transformers need gcc/g++)
 RUN apt-get update && apt-get install -y gcc g++ && rm -rf /var/lib/apt/lists/*
 COPY annotation_fastapi/requirements.txt ./
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application
 COPY annotation_fastapi/ ./
