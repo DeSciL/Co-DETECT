@@ -55,23 +55,3 @@ jobs:
 
     - name: Push Docker tag
       run: docker push $REGISTRY/$ORG/$REPO/$LABEL:latest
-
-  deploy:
-    # The type of runner that the job will run on
-    runs-on: descil-runners
-
-    needs:
-      - build
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-      - uses: azure/setup-kubectl@v3
-        id: install
-
-      - uses: azure/k8s-set-context@v4
-        with:
-          method: kubeconfig
-          kubeconfig: ${{ secrets.K8S_KUBECONFIG }}
-
-      - name: Redeploy $NS-$LABEL
-        run: kubectl rollout restart deployment $NS-$LABEL -n $NS
