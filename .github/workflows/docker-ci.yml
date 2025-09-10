@@ -29,9 +29,6 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     - uses: actions/checkout@v4
-      with:
-        submodules: 'true'
-        token: ${{ secrets.TUTORSHOP_GITHUB_PAT }}
 
     - name: Get latest tag pushed
       id: tag
