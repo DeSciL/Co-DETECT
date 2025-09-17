@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Copy package files first for better caching
 COPY frontend/package*.json ./
-RUN npm ci --omit=dev --legacy-peer-deps
+RUN npm ci --legacy-peer-deps
 
 # Copy source and build
 COPY frontend/ ./
