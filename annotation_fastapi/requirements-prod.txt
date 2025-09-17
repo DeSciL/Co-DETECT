@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+pandas
+openai
+scikit-learn
+diskcache
+python-dotenv
+python-multipart
+litellm
+k-means-constrained
+numpy
+tqdm

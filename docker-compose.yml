@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  co-detect:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      # Mount results directory for persistence
+      - ./annotation_results:/app/annotation_results
+      - ./models:/app/models
+      - ./openai_cache:/app/openai_cache
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

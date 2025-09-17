@@ -22,6 +22,10 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
 # Ensure results directory exists
 os.makedirs("annotation_results", exist_ok=True)
 os.makedirs("models", exist_ok=True)
