@@ -19,7 +19,7 @@ env:
   REGISTRY: ${{ secrets.DESCIL_REGISTRY_URL }}
   ORG: descil
   REPO: datascience
-  LABEL: tutorshop
+  LABEL: codetect
   NS: led
 
 jobs:
