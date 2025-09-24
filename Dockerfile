@@ -26,9 +26,7 @@ COPY --from=frontend-build /app/dist ./static
 COPY annotation_fastapi/ ./
 
 # Create directories and set permissions
-RUN mkdir -p annotation_results models openai_cache && \
-    chown -R app:app /app && \
-    chmod -R 755 /app
+RUN mkdir -p annotation_results models openai_cache
 
 EXPOSE 8000
 
