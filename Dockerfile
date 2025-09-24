@@ -28,7 +28,7 @@ RUN apt-get update && \
 RUN pip install --no-cache-dir --upgrade pip==24.0 setuptools wheel
 
 # Install Python packages with optimizations
-COPY annotation_fastapi/requirements.txt ./requirements.txt
+COPY annotation_fastapi/requirements_prod.txt ./requirements.txt
 RUN pip install --no-cache-dir --user \
     --find-links https://download.pytorch.org/whl/cpu \
     --prefer-binary \
