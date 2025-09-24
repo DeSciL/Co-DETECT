@@ -26,6 +26,11 @@ app.add_middleware(
 os.makedirs("annotation_results", exist_ok=True)
 os.makedirs("models", exist_ok=True)
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for container health monitoring"""
+    return {"status": "healthy", "service": "Co-DETECT annotation API"}
+
 def clean_json_data(data):
     """
     Recursively clean invalid floating point values in data, replacing NaN and Infinity with None
