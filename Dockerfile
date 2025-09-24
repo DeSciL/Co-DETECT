@@ -15,7 +15,7 @@ RUN apt-get update && \
 
 # Install Python packages
 COPY annotation_fastapi/requirements_prod.txt ./requirements.txt
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 WORKDIR /app
 
