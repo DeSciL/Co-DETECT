@@ -9,14 +9,9 @@ RUN npm run build && npm cache clean --force
 # Stage 2: Final runtime image
 FROM python:3.12-slim
 
-# Install only essential runtime dependencies
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        curl \
-        libgomp1 && \
-    rm -rf /var/lib/apt/lists/* && \
-    apt-get clean && \
-    rm -rf /tmp/* /var/tmp/*
+    apt-get install -y --no-install-recommends g++ && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Python packages
 COPY annotation_fastapi/requirements_prod.txt ./requirements.txt
