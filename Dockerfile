@@ -17,9 +17,6 @@ RUN apt-get update && \
 COPY annotation_fastapi/requirements_prod.txt ./requirements.txt
 RUN pip install --no-cache-dir --user -r requirements.txt
 
-# Add user for security
-RUN useradd --create-home --shell /bin/bash --uid 1000 app
-
 WORKDIR /app
 
 # Copy built frontend
@@ -32,8 +29,6 @@ COPY annotation_fastapi/ ./
 RUN mkdir -p annotation_results models openai_cache && \
     chown -R app:app /app && \
     chmod -R 755 /app
-
-USER app
 
 EXPOSE 8000
 
