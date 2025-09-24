@@ -11,7 +11,7 @@ set -e
 docker login ${registry}
 
 # Build the Docker image using the specified Dockerfile
-docker build -t ${registry}${name}:${tag} -f Dockerfile . --network=host
+docker build -t ${registry}${name}:${tag} -f Dockerfile_frontend . --network=host
 if [ $? -ne 0 ]; then
   echo “~~~~ error: failed to build docker container ~~~~~”
 fi
