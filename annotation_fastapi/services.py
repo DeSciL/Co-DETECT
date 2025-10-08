@@ -1,7 +1,7 @@
 import json
 import numpy as np
 import pandas as pd
-from utils import read_file_content, call_openai_annotation, parse_json_output, call_openai, parse_aggregation, parse_merge, get_embeddings_with_cache
+from utils import read_file_content, call_openai_annotation, parse_json_output, call_openai, parse_aggregation, parse_merge, get_embeddings_with_cache, EMBEDDING_MODEL, AZURE_API_KEY, AZURE_API_BASE, AZURE_API_VERSION, OPENAI_API, OPENAI_API_BASE
 from typing import List, Dict
 from fastapi import UploadFile
 import logging
@@ -15,7 +15,19 @@ from openai import OpenAI
 from collections import OrderedDict
 import uuid
 
-client = OpenAI()
+# Configure OpenAI client for Azure or direct API
+if AZURE_API_KEY:
+    client = OpenAI(
+        api_key=AZURE_API_KEY,
+        azure_endpoint=AZURE_API_BASE,
+        api_version=AZURE_API_VERSION
+    )
+else:
+    # Use custom OpenAI API base if provided, otherwise default
+    client_kwargs = {"api_key": OPENAI_API}
+    if OPENAI_API_BASE:
+        client_kwargs["base_url"] = OPENAI_API_BASE
+    client = OpenAI(**client_kwargs)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -105,7 +117,7 @@ def cluster_texts_with_pca(df, text_column='text_to_annotate', task_id=None, n_c
     logger = logging.getLogger("services")
 
     # Encode text into embeddings
-    embeddings = get_embeddings_with_cache(df[text_column].tolist(), "text-embedding-3-large", client)
+    embeddings = get_embeddings_with_cache(df[text_column].tolist(), EMBEDDING_MODEL, client)
 
     pca = None
     kmeans = None
@@ -151,7 +163,7 @@ async def synthesize_guideline_improvements(df, guideline_text, task_id: str = N
     # Get text and embeddings
     suggestions = df["guideline_improvement"].tolist()
     case_descriptions = [s.strip(' \n') if '->' not in s else s.split('->')[0].strip() for s in suggestions]
-    embeddings = get_embeddings_with_cache(case_descriptions, "text-embedding-3-large", client)
+    embeddings = get_embeddings_with_cache(case_descriptions, EMBEDDING_MODEL, client)
     
     # Determine appropriate number of clusters based on data size
     data_size = len(suggestions)
@@ -467,7 +479,7 @@ async def process_annotation_one_json(
     df = pd.DataFrame({"text_to_annotate": [example], "uid": [uid]})
 
     # Get embedding for the single example
-    embeddings = get_embeddings_with_cache([example], "text-embedding-3-large", client)
+    embeddings = get_embeddings_with_cache([example], EMBEDDING_MODEL, client)
     
     # Transform embedding using PCA
     reduced = pca_model.transform(embeddings)
@@ -491,7 +503,7 @@ async def process_annotation_one_json(
 
     if df["guideline_improvement"][0] is not None and df["new_edge_case"][0] == True:
         edge_case_description = df["guideline_improvement"][0].strip() if '->' not in df["guideline_improvement"][0] else df["guideline_improvement"][0].split('->')[0].strip()
-        edge_case_rule_embedding = get_embeddings_with_cache([edge_case_description], "text-embedding-3-large", client)
+        edge_case_rule_embedding = get_embeddings_with_cache([edge_case_description], EMBEDDING_MODEL, client)
         # Load cluster PCA model
         if os.path.exists(f'models/pca_model_{task_id}_cluster{round_string}.pkl'):
             with open(f'models/pca_model_{task_id}_cluster{round_string}.pkl', 'rb') as f:

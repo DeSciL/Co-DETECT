@@ -3,6 +3,7 @@ import openai
 import diskcache as dc
 import asyncio
 import json
+import litellm
 from litellm import completion, acompletion
 from tqdm import tqdm
 from typing import List
@@ -15,10 +16,33 @@ import time
 from dotenv import load_dotenv
 
 load_dotenv()  # Load environment variables from .env file
-OPENAI_API = os.getenv('OPENAI_API_KEY', None)  # Default to None if not found
-DEEPSEEK_API = os.getenv('DEEPSEEK_API_KEY', None)  # Default to None if not found
-DEFAULT_MODEL = 'gpt-4.1'
-openai.api_key = OPENAI_API
+
+# OpenAI configuration
+OPENAI_API = os.getenv('OPENAI_API_KEY', None)
+OPENAI_API_BASE = os.getenv('OPENAI_API_BASE', None)
+
+# Azure OpenAI configuration
+AZURE_API_KEY = os.getenv('AZURE_API_KEY', None)
+AZURE_API_BASE = os.getenv('AZURE_API_BASE', None) 
+AZURE_API_VERSION = os.getenv('AZURE_API_VERSION', '2024-02-01')
+
+# DeepSeek configuration (for your GPU cluster)
+DEEPSEEK_API = os.getenv('DEEPSEEK_API_KEY', None)
+DEEPSEEK_API_BASE = os.getenv('DEEPSEEK_API_BASE', None)
+
+# Other provider configurations
+TOGETHER_AI_API_KEY = os.getenv('TOGETHER_AI_API_KEY', None)
+TOGETHER_AI_API_BASE = os.getenv('TOGETHER_AI_API_BASE', None)
+
+ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', None)
+ANTHROPIC_API_BASE = os.getenv('ANTHROPIC_API_BASE', None)
+
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', None)
+GOOGLE_API_BASE = os.getenv('GOOGLE_API_BASE', None)
+
+# Environment-based default model
+DEFAULT_MODEL = os.getenv('DEFAULT_MODEL', 'gpt-4.1')
+openai.api_key = AZURE_API_KEY or OPENAI_API
 
 logging.basicConfig(
     level=logging.INFO,
@@ -47,6 +71,52 @@ MODEL_DICT = {
     'llama4_maverick': "together_ai/meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
     'gemma3': "together_ai/google/gemma-3-12b-it",
 }
+
+# Override MODEL_DICT for Azure deployments if Azure keys are present
+if AZURE_API_KEY:
+    logger.info("Using Azure OpenAI deployments")
+    MODEL_DICT.update({
+        'o1': 'azure/o1-deployment',  # Replace with your actual Azure deployment names
+        'o3-mini': 'azure/o3-mini-deployment', 
+        'gpt-4o-mini': 'azure/gpt-4o-mini-deployment',
+        'gpt-4o': 'azure/gpt-4o-deployment',
+        'gpt-4.1': 'azure/gpt-4-turbo-deployment',
+    })
+
+# DeepSeek models are not typically available on Azure OpenAI
+# Keep using direct DeepSeek API even when Azure is configured
+
+# Dynamic embedding model selection
+EMBEDDING_MODEL = "azure/text-embedding-3-large" if AZURE_API_KEY else "text-embedding-3-large"
+
+# Configure LiteLLM for custom API bases
+# Set up custom API bases for different providers
+if OPENAI_API_BASE and OPENAI_API:
+    litellm.api_base = OPENAI_API_BASE
+    logger.info(f"Using custom OpenAI API base: {OPENAI_API_BASE}")
+
+if AZURE_API_BASE and AZURE_API_KEY:
+    # Azure configuration is handled by LiteLLM automatically with azure/ prefix
+    logger.info(f"Using Azure OpenAI API base: {AZURE_API_BASE}")
+
+if DEEPSEEK_API_BASE and DEEPSEEK_API:
+    # Configure custom DeepSeek endpoint
+    litellm.set_verbose = False  # Reduce logging noise
+    os.environ["DEEPSEEK_API_BASE"] = DEEPSEEK_API_BASE
+    logger.info(f"Using custom DeepSeek API base: {DEEPSEEK_API_BASE}")
+
+if TOGETHER_AI_API_BASE and TOGETHER_AI_API_KEY:
+    os.environ["TOGETHER_AI_API_BASE"] = TOGETHER_AI_API_BASE
+    logger.info(f"Using custom Together AI API base: {TOGETHER_AI_API_BASE}")
+
+if ANTHROPIC_API_BASE and ANTHROPIC_API_KEY:
+    os.environ["ANTHROPIC_API_BASE"] = ANTHROPIC_API_BASE
+    logger.info(f"Using custom Anthropic API base: {ANTHROPIC_API_BASE}")
+
+if GOOGLE_API_BASE and GOOGLE_API_KEY:
+    os.environ["GOOGLE_API_BASE"] = GOOGLE_API_BASE
+    logger.info(f"Using custom Google API base: {GOOGLE_API_BASE}")
+
 INPUT_COST_DICT = {
     'o1': 15,
     'o3-mini': 1.1,
@@ -708,4 +778,3 @@ Edge Cases in Category 3: [2, 9]
 All edge cases are covered without overlap, and categories reflect distinct decision-making criteria (explicit language, contextual intent, target identity)."""
     result = parse_aggregation(sample_string)
     print(result)
-
