@@ -26,7 +26,7 @@ AZURE_API_KEY = os.getenv('AZURE_API_KEY', None)
 AZURE_API_BASE = os.getenv('AZURE_API_BASE', None) 
 AZURE_API_VERSION = os.getenv('AZURE_API_VERSION', '2024-02-01')
 
-# DeepSeek configuration (for your GPU cluster)
+# DeepSeek configuration (for custom GPU cluster)
 DEEPSEEK_API = os.getenv('DEEPSEEK_API_KEY', None)
 DEEPSEEK_API_BASE = os.getenv('DEEPSEEK_API_BASE', None)
 
