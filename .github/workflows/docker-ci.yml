@@ -2,7 +2,7 @@ name: Docker CI
 
 on:
   push:
-    tags:     # Pattern matched against refs/tags
+    tags:    # Pattern matched against refs/tags
       - '*'
 
   # push:
