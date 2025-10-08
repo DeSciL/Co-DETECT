@@ -3,7 +3,7 @@ WORKDIR /app
 COPY frontend/package*.json ./
 RUN npm ci --legacy-peer-deps --no-audit --no-fund
 COPY frontend/ ./
-ENV VITE_API_BASE_URL="http://led-codetect-svc"
+ENV VITE_API_BASE_URL="http://led-codetect-svc.led.svc.cluster.local"
 RUN npm run build && npm cache clean --force
 
 FROM nginx:alpine
