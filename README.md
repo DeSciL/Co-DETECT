@@ -41,6 +41,17 @@ DEEPSEEK_API_KEY=your_deepseek_api_key_here
 ```
 **Note**: Backend Mode always makes real OpenAI and DeepSeek API calls, so ensure your API keys are set.
 
+This was extended to support Azure OpenAI as well as custom API bases. Please refer to the [**environment variables configuration**](annotation_fastapi/utils.py) for details.
+
+In summary, to use Azure OpenAI gpt-4o for annotation and Azure OpenAI gpt-5 for reasoning, your `.env` file should look like:
+```bash
+AZURE_OPENAI_API_KEY=your_azure_openai_api_key_here
+AZURE_OPENAI_ENDPOINT=https://your-azure-endpoint.openai.azure.com
+AZURE_OPENAI_VERSION=2023-12-01-preview
+ANNOTATION_MODEL=azure/gpt-4o
+REASONING_MODEL=azure/gpt-5
+```
+
 ### 1. Launch Backend (Only for Backend Mode)
 ```bash
 cd annotation_fastapi
@@ -133,5 +144,3 @@ Open [**Local Host**](http://localhost:5173)
 2. **View Saved Rules**: Check "Edge Case Handling" panel for your saved rules  
 3. **Iterate**: Click "Iterate" button to re-annotate using improved guidelines
 4. **Compare Results**: View before/after annotation changes
-
-

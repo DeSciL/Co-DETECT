@@ -1,7 +1,7 @@
 import json
 import numpy as np
 import pandas as pd
-from utils import read_file_content, call_openai_annotation, parse_json_output, call_openai, parse_aggregation, parse_merge, get_embeddings_with_cache, EMBEDDING_MODEL, AZURE_API_KEY, AZURE_API_BASE, AZURE_API_VERSION, OPENAI_API, OPENAI_API_BASE
+from utils import read_file_content, call_openai_annotation, parse_json_output, call_openai, parse_aggregation, parse_merge, get_embeddings_with_cache, EMBEDDING_MODEL, REASONING_MODEL, AZURE_OPENAI_API_KEY, AZURE_OPENAI_API_BASE, AZURE_OPENAI_API_VERSION, OPENAI_API, OPENAI_API_BASE
 from typing import List, Dict
 from fastapi import UploadFile
 import logging
@@ -16,11 +16,11 @@ from collections import OrderedDict
 import uuid
 
 # Configure OpenAI client for Azure or direct API
-if AZURE_API_KEY:
+if AZURE_OPENAI_API_KEY:
     client = OpenAI(
-        api_key=AZURE_API_KEY,
-        azure_endpoint=AZURE_API_BASE,
-        api_version=AZURE_API_VERSION
+        api_key=AZURE_OPENAI_API_KEY,
+        azure_endpoint=AZURE_OPENAI_API_BASE,
+        api_version=AZURE_OPENAI_API_VERSION
     )
 else:
     # Use custom OpenAI API base if provided, otherwise default
@@ -277,8 +277,8 @@ async def synthesize_guideline_improvements(df, guideline_text, task_id: str = N
         all_messages.append([{'role': 'user', 'content': AGGREGATION_RPOMPT.format(guideline=guideline_text, edge_case=suggestions_text)}])
 
     logger.info(f"One example aggregation prompt: {all_messages[0][0]['content']}")
-    # Send to DeepSeek-R1
-    summaries = await call_openai(all_messages, model='deepseek-reasoner')
+    # Send to reasoning model
+    summaries = await call_openai(all_messages, model=REASONING_MODEL)
     for cluster_id, response in enumerate(summaries):
         current_cluster_results = parse_aggregation(response)
         for category in current_cluster_results:
@@ -298,7 +298,7 @@ async def synthesize_guideline_improvements(df, guideline_text, task_id: str = N
         logger.info(f'Number of new rule before merge: {len(new_rules)}.')
         cases_to_merge = "\n".join(f"{i+1}. {k}" for i, (k, v) in enumerate(new_rules.items()))
         merge_message = [{'role': 'user', 'content': MERGE_PROMPT.format(guideline=guideline_text, edge_case=cases_to_merge)}]
-        final_aggregate = await call_openai([merge_message], model='deepseek-reasoner')
+        final_aggregate = await call_openai([merge_message], model=REASONING_MODEL)
         merge_suggestions = parse_merge(final_aggregate[0])
 
         merged_rules = OrderedDict()

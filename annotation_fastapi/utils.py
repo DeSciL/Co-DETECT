@@ -22,9 +22,9 @@ OPENAI_API = os.getenv('OPENAI_API_KEY', None)
 OPENAI_API_BASE = os.getenv('OPENAI_API_BASE', None)
 
 # Azure OpenAI configuration
-AZURE_API_KEY = os.getenv('AZURE_API_KEY', None)
-AZURE_API_BASE = os.getenv('AZURE_API_BASE', None) 
-AZURE_API_VERSION = os.getenv('AZURE_API_VERSION', '2024-02-01')
+AZURE_OPENAI_API_KEY = os.getenv('AZURE_OPENAI_API_KEY', None)
+AZURE_OPENAI_API_BASE = os.getenv('AZURE_OPENAI_API_BASE', None) 
+AZURE_OPENAI_API_VERSION = os.getenv('AZURE_OPENAI_API_VERSION', '2024-02-01')
 
 # DeepSeek configuration (for custom GPU cluster)
 DEEPSEEK_API = os.getenv('DEEPSEEK_API_KEY', None)
@@ -40,9 +40,11 @@ ANTHROPIC_API_BASE = os.getenv('ANTHROPIC_API_BASE', None)
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', None)
 GOOGLE_API_BASE = os.getenv('GOOGLE_API_BASE', None)
 
-# Environment-based default model
-DEFAULT_MODEL = os.getenv('DEFAULT_MODEL', 'gpt-4.1')
-openai.api_key = AZURE_API_KEY or OPENAI_API
+# Environment-based model configurations
+ANNOTATION_MODEL = os.getenv('ANNOTATION_MODEL', 'gpt-4.1')  # Annotation model for primary text annotations
+REASONING_MODEL = os.getenv('REASONING_MODEL', 'deepseek-reasoner')  # For guideline synthesis
+
+openai.api_key = AZURE_OPENAI_API_KEY or OPENAI_API
 
 logging.basicConfig(
     level=logging.INFO,
@@ -59,6 +61,7 @@ MODEL_DICT = {
     'gpt-4o-mini': 'gpt-4o-mini',
     'gpt-4o': 'gpt-4o',
     'gpt-4.1': 'gpt-4.1-2025-04-14',
+    'gpt-5': 'gpt-5',
     # 'deepseek-chat': 'together_ai/deepseek-ai/DeepSeek-V3',
     # 'deepseek-reasoner': "together_ai/deepseek-ai/DeepSeek-R1",
     'deepseek-chat': 'deepseek/deepseek-chat',
@@ -73,21 +76,23 @@ MODEL_DICT = {
 }
 
 # Override MODEL_DICT for Azure deployments if Azure keys are present
-if AZURE_API_KEY:
+if AZURE_OPENAI_API_KEY:
     logger.info("Using Azure OpenAI deployments")
     MODEL_DICT.update({
-        'o1': 'azure/o1-deployment',  # Replace with your actual Azure deployment names
-        'o3-mini': 'azure/o3-mini-deployment', 
-        'gpt-4o-mini': 'azure/gpt-4o-mini-deployment',
-        'gpt-4o': 'azure/gpt-4o-deployment',
-        'gpt-4.1': 'azure/gpt-4-turbo-deployment',
+        'o1': 'azure/o1',
+        'o3-mini': 'azure/o3-mini', 
+        'gpt-4o-mini': 'azure/gpt-4o-mini',
+        'gpt-4o': 'azure/gpt-4o',
+        'gpt-4.1': 'azure/gpt-4.1',
+        'gpt-5': 'azure/gpt-5',
     })
 
-# DeepSeek models are not typically available on Azure OpenAI
-# Keep using direct DeepSeek API even when Azure is configured
-
-# Dynamic embedding model selection
-EMBEDDING_MODEL = "azure/text-embedding-3-large" if AZURE_API_KEY else "text-embedding-3-large"
+# DeepSeek models are not typically available on Azure OpenAI, dynamic embedding
+# model selection (Azure prefix if using Azure)
+if AZURE_OPENAI_API_KEY and 'azure' not in os.getenv('EMBEDDING_MODEL', ''):
+    EMBEDDING_MODEL = f"azure/{os.getenv('EMBEDDING_MODEL', 'text-embedding-3-large')}"
+else:
+    EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'text-embedding-3-large')
 
 # Configure LiteLLM for custom API bases
 # Set up custom API bases for different providers
@@ -95,9 +100,12 @@ if OPENAI_API_BASE and OPENAI_API:
     litellm.api_base = OPENAI_API_BASE
     logger.info(f"Using custom OpenAI API base: {OPENAI_API_BASE}")
 
-if AZURE_API_BASE and AZURE_API_KEY:
-    # Azure configuration is handled by LiteLLM automatically with azure/ prefix
-    logger.info(f"Using Azure OpenAI API base: {AZURE_API_BASE}")
+if AZURE_OPENAI_API_BASE and AZURE_OPENAI_API_KEY:
+    # Configure Azure OpenAI for LiteLLM
+    os.environ["AZURE_API_KEY"] = AZURE_OPENAI_API_KEY
+    os.environ["AZURE_API_BASE"] = AZURE_OPENAI_API_BASE  
+    os.environ["AZURE_API_VERSION"] = AZURE_OPENAI_API_VERSION
+    logger.info(f"Using Azure OpenAI API base: {AZURE_OPENAI_API_BASE}")
 
 if DEEPSEEK_API_BASE and DEEPSEEK_API:
     # Configure custom DeepSeek endpoint
@@ -123,6 +131,7 @@ INPUT_COST_DICT = {
     'gpt-4o-mini': 0.15,
     'gpt-4o': 2.5,
     'gpt-4.1': 2,
+    'gpt-5': 5,
     'deepseek-chat': 0.27,
     'deepseek-reasoner': 0.55,
     # 'deepseek-chat': 1.25,
@@ -141,6 +150,7 @@ OUTPUT_COST_DICT = {
     'gpt-4o-mini': 0.6,
     'gpt-4o': 10,
     'gpt-4.1': 8,
+    'gpt-5': 20,
     'deepseek-chat': 1.10,
     'deepseek-reasoner': 2.19,
     # 'deepseek-chat': 1.25,
@@ -156,6 +166,7 @@ OUTPUT_COST_DICT = {
 GENE_ARGS_DICT = {
     'gpt-4o-mini': {'temperature': 0, 'max_tokens': 4096, 'seed': 42},
     'gpt-4.1': {'temperature': 0, 'max_tokens': 4096, 'seed': 42},
+    'gpt-5': {'temperature': 0, 'max_tokens': 8192, 'seed': 42},
     'deepseek-reasoner': {'temperature': 0.6, 'max_tokens': 8192},
     'qwq-32b': {'temperature': 0.6, 'top_p': 0.95, 'max_tokens': 8192},
     'o3-mini': {'reasoning_effort': 'high', 'max_tokens': 8192, 'seed': 42},
@@ -489,8 +500,11 @@ def get_output_price(model, output_len=None):
 
 async def achat(model, messages, generation_args):
     if generation_args is None:
-        generation_args = GENE_ARGS_DICT[model]
-    output = await acompletion(model=MODEL_DICT[model], messages=messages, **generation_args)
+        generation_args = GENE_ARGS_DICT.get(model, {'temperature': 0, 'max_tokens': 4096})
+    if model in MODEL_DICT:
+        output = await acompletion(model=MODEL_DICT[model], messages=messages, **generation_args)
+    else:
+        output = await acompletion(model=model, messages=messages, **generation_args)
     input_token_num = output.usage.prompt_tokens
     output_token_num = output.usage.completion_tokens
     try:
@@ -617,7 +631,7 @@ async def call_openai_annotation(texts: List[str], guideline: str) -> List[str]:
     messages = [[{'role': 'system', 'content': SYSTEM_PROMPT}, {'role': 'user', 'content': p}] for p in prompts_to_run]
     total_cost = 0
     while True:
-        responses, err_batches, cost = await create_answers_async(DEFAULT_MODEL, messages, cache_path=os.path.join('openai_cache', f"openai.diskcache"), generation_args=GENE_ARGS_DICT[DEFAULT_MODEL])
+        responses, err_batches, cost = await create_answers_async(ANNOTATION_MODEL, messages, cache_path=os.path.join('openai_cache', f"openai.diskcache"), generation_args=GENE_ARGS_DICT[ANNOTATION_MODEL])
         total_cost += cost
         if len(err_batches) == 0:
             break
