@@ -2,7 +2,7 @@
 The Repository for the EMNLP 2025 (Demo) Paper ***Co-DETECT***: **Co**llaborative **D**iscovery of **E**dge cases in **TE**xt **C**lassifica**T**ion 
 
 [![arXiv](https://img.shields.io/badge/arXiv-2507.05010-b31b1b)](https://arxiv.org/abs/2507.05010)
-[![license](https://img.shields.io/github/license/EdisonNi-hku/Co-DETECT)](https://github.com/EdisonNi-hku/Co-DETECT/blob/main/LICENSE)
+[![license](https://img.shields.io/github/license/EdisonNi-hku/Co-DETECT?label=License)](https://github.com/EdisonNi-hku/Co-DETECT/blob/main/LICENSE)
 
 ### [[Demonstration Video]](https://youtu.be/jR66Idbd-1I)
 
