@@ -1,5 +1,5 @@
 # Co-DETECT
-***Co-DETECT***: **Co**llaborative **D**iscovery of **E**dge cases in **TE**xt **C**lassifica**T**ion
+The Repository for the EMNLP 2025 (Demo) Paper ***Co-DETECT***: **Co**llaborative **D**iscovery of **E**dge cases in **TE**xt **C**lassifica**T**ion [***[Paper]***](https://arxiv.org/abs/2507.05010)
 
 ### [[Demonstration Video]](https://youtu.be/jR66Idbd-1I)
 
@@ -133,5 +133,18 @@ Open [**Local Host**](http://localhost:5173)
 2. **View Saved Rules**: Check "Edge Case Handling" panel for your saved rules  
 3. **Iterate**: Click "Iterate" button to re-annotate using improved guidelines
 4. **Compare Results**: View before/after annotation changes
+
+## Citation
+
+If you find our work helpful, please consider citing us: 
+```shell
+@article{xiong2025co,
+  title={Co-DETECT: Collaborative Discovery of Edge Cases in Text Classification},
+  author={Xiong, Chenfei and Ni, Jingwei and Fan, Yu and Zouhar, Vil{\'e}m and Rooein, Donya and Calvo-Bartolom{\'e}, Lorena and Hoyle, Alexander and Jin, Zhijing and Sachan, Mrinmaya and Leippold, Markus and others},
+  journal={arXiv preprint arXiv:2507.05010},
+  year={2025}
+}
+```
+
 
 
