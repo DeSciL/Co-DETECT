@@ -1,7 +1,7 @@
 import json
 import numpy as np
 import pandas as pd
-from utils import read_file_content, call_openai_annotation, parse_json_output, call_openai, parse_aggregation, parse_merge, get_embeddings_with_cache, EMBEDDING_MODEL, REASONING_MODEL, AZURE_OPENAI_API_KEY, AZURE_OPENAI_API_BASE, AZURE_OPENAI_API_VERSION, OPENAI_API, OPENAI_API_BASE
+from utils import read_file_content, call_openai_annotation, parse_json_output, call_openai, parse_aggregation, parse_merge, get_embeddings_with_cache, EMBEDDING_MODEL, REASONING_MODEL, AZURE_API_KEY, AZURE_API_BASE, AZURE_API_VERSION, OPENAI_API, OPENAI_API_BASE
 from typing import List, Dict
 from fastapi import UploadFile
 import logging
@@ -16,11 +16,11 @@ from collections import OrderedDict
 import uuid
 
 # Configure OpenAI client for Azure or direct API
-if AZURE_OPENAI_API_KEY:
+if AZURE_API_KEY:
     client = OpenAI(
-        api_key=AZURE_OPENAI_API_KEY,
-        azure_endpoint=AZURE_OPENAI_API_BASE,
-        api_version=AZURE_OPENAI_API_VERSION
+        api_key=AZURE_API_KEY,
+        azure_endpoint=AZURE_API_BASE,
+        api_version=AZURE_API_VERSION
     )
 else:
     # Use custom OpenAI API base if provided, otherwise default

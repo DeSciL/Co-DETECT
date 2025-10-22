@@ -45,9 +45,9 @@ This was extended to support Azure OpenAI as well as custom API bases. Please re
 
 In summary, to use Azure OpenAI gpt-4o for annotation and Azure OpenAI gpt-5 for reasoning, your `.env` file should look like:
 ```bash
-AZURE_OPENAI_API_KEY=your_azure_openai_api_key_here
-AZURE_OPENAI_ENDPOINT=https://your-azure-endpoint.openai.azure.com
-AZURE_OPENAI_VERSION=2023-12-01-preview
+AZURE_API_KEY=your_AZURE_API_KEY_here
+AZURE_ENDPOINT=https://your-azure-endpoint.openai.azure.com
+AZURE_VERSION=2023-12-01-preview
 ANNOTATION_MODEL=azure/gpt-4o
 REASONING_MODEL=azure/gpt-5
 ```

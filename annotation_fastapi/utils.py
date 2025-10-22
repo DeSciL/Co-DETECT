@@ -22,9 +22,9 @@ OPENAI_API = os.getenv('OPENAI_API_KEY', None)
 OPENAI_API_BASE = os.getenv('OPENAI_API_BASE', None)
 
 # Azure OpenAI configuration
-AZURE_OPENAI_API_KEY = os.getenv('AZURE_OPENAI_API_KEY', None)
-AZURE_OPENAI_API_BASE = os.getenv('AZURE_OPENAI_API_BASE', None) 
-AZURE_OPENAI_API_VERSION = os.getenv('AZURE_OPENAI_API_VERSION', '2024-02-01')
+AZURE_API_KEY = os.getenv('AZURE_API_KEY', None)
+AZURE_API_BASE = os.getenv('AZURE_API_BASE', None) 
+AZURE_API_VERSION = os.getenv('AZURE_API_VERSION', '2024-02-01')
 
 # DeepSeek configuration (for custom GPU cluster)
 DEEPSEEK_API = os.getenv('DEEPSEEK_API_KEY', None)
@@ -44,7 +44,7 @@ GOOGLE_API_BASE = os.getenv('GOOGLE_API_BASE', None)
 ANNOTATION_MODEL = os.getenv('ANNOTATION_MODEL', 'gpt-4.1')  # Annotation model for primary text annotations
 REASONING_MODEL = os.getenv('REASONING_MODEL', 'deepseek-reasoner')  # For guideline synthesis
 
-openai.api_key = AZURE_OPENAI_API_KEY or OPENAI_API
+openai.api_key = AZURE_API_KEY or OPENAI_API
 
 logging.basicConfig(
     level=logging.INFO,
@@ -76,7 +76,7 @@ MODEL_DICT = {
 }
 
 # Override MODEL_DICT for Azure deployments if Azure keys are present
-if AZURE_OPENAI_API_KEY:
+if AZURE_API_KEY:
     logger.info("Using Azure OpenAI deployments")
     MODEL_DICT.update({
         'o1': 'azure/o1',
@@ -89,7 +89,7 @@ if AZURE_OPENAI_API_KEY:
 
 # DeepSeek models are not typically available on Azure OpenAI, dynamic embedding
 # model selection (Azure prefix if using Azure)
-if AZURE_OPENAI_API_KEY and 'azure' not in os.getenv('EMBEDDING_MODEL', ''):
+if AZURE_API_KEY and 'azure' not in os.getenv('EMBEDDING_MODEL', ''):
     EMBEDDING_MODEL = f"azure/{os.getenv('EMBEDDING_MODEL', 'text-embedding-3-large')}"
 else:
     EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'text-embedding-3-large')
@@ -100,12 +100,12 @@ if OPENAI_API_BASE and OPENAI_API:
     litellm.api_base = OPENAI_API_BASE
     logger.info(f"Using custom OpenAI API base: {OPENAI_API_BASE}")
 
-if AZURE_OPENAI_API_BASE and AZURE_OPENAI_API_KEY:
+if AZURE_API_BASE and AZURE_API_KEY:
     # Configure Azure OpenAI for LiteLLM
-    os.environ["AZURE_API_KEY"] = AZURE_OPENAI_API_KEY
-    os.environ["AZURE_API_BASE"] = AZURE_OPENAI_API_BASE  
-    os.environ["AZURE_API_VERSION"] = AZURE_OPENAI_API_VERSION
-    logger.info(f"Using Azure OpenAI API base: {AZURE_OPENAI_API_BASE}")
+    os.environ["AZURE_API_KEY"] = AZURE_API_KEY
+    os.environ["AZURE_API_BASE"] = AZURE_API_BASE  
+    os.environ["AZURE_API_VERSION"] = AZURE_API_VERSION
+    logger.info(f"Using Azure OpenAI API base: {AZURE_API_BASE}")
 
 if DEEPSEEK_API_BASE and DEEPSEEK_API:
     # Configure custom DeepSeek endpoint
