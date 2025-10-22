@@ -11,13 +11,13 @@ from sklearn.decomposition import PCA
 import os
 import datetime
 import pickle
-from openai import OpenAI
+from openai import OpenAI, AzureOpenAI
 from collections import OrderedDict
 import uuid
 
 # Configure OpenAI client for Azure or direct API
 if AZURE_API_KEY:
-    client = OpenAI(
+    client = AzureOpenAI(
         api_key=AZURE_API_KEY,
         azure_endpoint=AZURE_API_BASE,
         api_version=AZURE_API_VERSION
@@ -124,7 +124,7 @@ def cluster_texts_with_pca(df, text_column='text_to_annotate', task_id=None, n_c
     # Load existing models if they are saved
     if os.path.exists(f'models/pca_model_{task_id}{round_string}.pkl'):
         with open(f'models/pca_model_{task_id}{round_string}.pkl', 'rb') as f:
-            pca = pickle.load(f)
+            pca = pickle.load(f)f
     if os.path.exists(f'models/kmeans_model_{task_id}{round_string}.pkl'):
         with open(f'models/kmeans_model_{task_id}{round_string}.pkl', 'rb') as f:
             kmeans = pickle.load(f)
