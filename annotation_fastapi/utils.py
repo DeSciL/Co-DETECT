@@ -27,7 +27,7 @@ AZURE_API_BASE = os.getenv('AZURE_API_BASE', None)
 AZURE_API_VERSION = os.getenv('AZURE_API_VERSION', '2024-02-01')
 
 # DeepSeek configuration (for custom GPU cluster)
-DEEPSEEK_API = os.getenv('DEEPSEEK_API_KEY', None)
+DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY', None)
 DEEPSEEK_API_BASE = os.getenv('DEEPSEEK_API_BASE', None)
 
 # Other provider configurations
@@ -101,28 +101,20 @@ if OPENAI_API_BASE and OPENAI_API_KEY:
     logger.info(f"Using custom OpenAI API base: {OPENAI_API_BASE}")
 
 if AZURE_API_BASE and AZURE_API_KEY:
-    # Configure Azure OpenAI for LiteLLM
-    os.environ["AZURE_API_KEY"] = AZURE_API_KEY
-    os.environ["AZURE_API_BASE"] = AZURE_API_BASE  
-    os.environ["AZURE_API_VERSION"] = AZURE_API_VERSION
     logger.info(f"Using Azure OpenAI API base: {AZURE_API_BASE}")
 
-if DEEPSEEK_API_BASE and DEEPSEEK_API:
+if DEEPSEEK_API_BASE and DEEPSEEK_API_KEY:
     # Configure custom DeepSeek endpoint
     litellm.set_verbose = False  # Reduce logging noise
-    os.environ["DEEPSEEK_API_BASE"] = DEEPSEEK_API_BASE
     logger.info(f"Using custom DeepSeek API base: {DEEPSEEK_API_BASE}")
 
 if TOGETHER_AI_API_BASE and TOGETHER_AI_API_KEY:
-    os.environ["TOGETHER_AI_API_BASE"] = TOGETHER_AI_API_BASE
     logger.info(f"Using custom Together AI API base: {TOGETHER_AI_API_BASE}")
 
 if ANTHROPIC_API_BASE and ANTHROPIC_API_KEY:
-    os.environ["ANTHROPIC_API_BASE"] = ANTHROPIC_API_BASE
     logger.info(f"Using custom Anthropic API base: {ANTHROPIC_API_BASE}")
 
 if GOOGLE_API_BASE and GOOGLE_API_KEY:
-    os.environ["GOOGLE_API_BASE"] = GOOGLE_API_BASE
     logger.info(f"Using custom Google API base: {GOOGLE_API_BASE}")
 
 INPUT_COST_DICT = {

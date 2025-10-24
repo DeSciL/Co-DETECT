@@ -15,6 +15,8 @@ from openai import OpenAI, AzureOpenAI
 from collections import OrderedDict
 import uuid
 
+from utils import EMBEDDING_MODEL, REASONING_MODEL, AZURE_API_KEY, AZURE_API_BASE, AZURE_API_VERSION, OPENAI_API_KEY, OPENAI_API_BASE
+
 # Configure OpenAI client for Azure or direct API
 if AZURE_API_KEY:
     client = AzureOpenAI(
