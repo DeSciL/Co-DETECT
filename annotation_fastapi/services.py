@@ -1,7 +1,7 @@
 import json
 import numpy as np
 import pandas as pd
-from utils import read_file_content, call_openai_annotation, parse_json_output, call_openai, parse_aggregation, parse_merge, get_embeddings_with_cache, EMBEDDING_MODEL, REASONING_MODEL, AZURE_API_KEY, AZURE_API_BASE, AZURE_API_VERSION, OPENAI_API, OPENAI_API_BASE
+from utils import read_file_content, call_openai_annotation, parse_json_output, call_openai, parse_aggregation, parse_merge, get_embeddings_with_cache, EMBEDDING_MODEL, REASONING_MODEL, AZURE_API_KEY, AZURE_API_BASE, AZURE_API_VERSION, OPENAI_API_KEY, OPENAI_API_BASE
 from typing import List, Dict
 from fastapi import UploadFile
 import logging
@@ -24,7 +24,7 @@ if AZURE_API_KEY:
     )
 else:
     # Use custom OpenAI API base if provided, otherwise default
-    client_kwargs = {"api_key": OPENAI_API}
+    client_kwargs = {"api_key": OPENAI_API_KEY}
     if OPENAI_API_BASE:
         client_kwargs["base_url"] = OPENAI_API_BASE
     client = OpenAI(**client_kwargs)
