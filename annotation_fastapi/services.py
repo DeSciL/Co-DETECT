@@ -15,7 +15,14 @@ from openai import OpenAI, AzureOpenAI
 from collections import OrderedDict
 import uuid
 
-from utils import EMBEDDING_MODEL, REASONING_MODEL, AZURE_API_KEY, AZURE_API_BASE, AZURE_API_VERSION, OPENAI_API_KEY, OPENAI_API_BASE
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger("services")  # Create/retrieve a named logger
+logger.setLevel(logging.INFO)
+
+logger.info(f"{EMBEDDING_MODEL=}, {REASONING_MODEL=} {AZURE_API_KEY=}, {AZURE_API_BASE=}, {AZURE_API_VERSION=}, {OPENAI_API_KEY=}, {OPENAI_API_BASE=}")
 
 # Configure OpenAI client for Azure or direct API
 if AZURE_API_KEY:
@@ -30,14 +37,6 @@ else:
     if OPENAI_API_BASE:
         client_kwargs["base_url"] = OPENAI_API_BASE
     client = OpenAI(**client_kwargs)
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger("services")  # Create/retrieve a named logger
-logger.setLevel(logging.INFO)
-
 
 AGGREGATION_RPOMPT = """I am annotating the following task:
 
