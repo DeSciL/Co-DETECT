@@ -19,7 +19,7 @@ import uuid
 if AZURE_API_KEY:
     client = AzureOpenAI(
         api_key=AZURE_API_KEY,
-        azure_endpoint=AZURE_API_BASE,
+        endpoint=AZURE_API_BASE,
         api_version=AZURE_API_VERSION
     )
 else:
