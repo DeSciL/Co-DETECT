@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()  # Load environment variables from .env file
 
 # OpenAI configuration
-OPENAI_API = os.getenv('OPENAI_API_KEY', None)
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', None)
 OPENAI_API_BASE = os.getenv('OPENAI_API_BASE', None)
 
 # Azure OpenAI configuration
@@ -44,7 +44,7 @@ GOOGLE_API_BASE = os.getenv('GOOGLE_API_BASE', None)
 ANNOTATION_MODEL = os.getenv('ANNOTATION_MODEL', 'gpt-4.1')  # Annotation model for primary text annotations
 REASONING_MODEL = os.getenv('REASONING_MODEL', 'deepseek-reasoner')  # For guideline synthesis
 
-openai.api_key = AZURE_API_KEY or OPENAI_API
+openai.api_key = AZURE_API_KEY or OPENAI_API_KEY
 
 logging.basicConfig(
     level=logging.INFO,
@@ -96,7 +96,7 @@ else:
 
 # Configure LiteLLM for custom API bases
 # Set up custom API bases for different providers
-if OPENAI_API_BASE and OPENAI_API:
+if OPENAI_API_BASE and OPENAI_API_KEY:
     litellm.api_base = OPENAI_API_BASE
     logger.info(f"Using custom OpenAI API base: {OPENAI_API_BASE}")
 
