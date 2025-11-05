@@ -125,7 +125,7 @@ def cluster_texts_with_pca(df, text_column='text_to_annotate', task_id=None, n_c
     # Load existing models if they are saved
     if os.path.exists(f'models/pca_model_{task_id}{round_string}.pkl'):
         with open(f'models/pca_model_{task_id}{round_string}.pkl', 'rb') as f:
-            pca = pickle.load(f)f
+            pca = pickle.load(f)
     if os.path.exists(f'models/kmeans_model_{task_id}{round_string}.pkl'):
         with open(f'models/kmeans_model_{task_id}{round_string}.pkl', 'rb') as f:
             kmeans = pickle.load(f)
