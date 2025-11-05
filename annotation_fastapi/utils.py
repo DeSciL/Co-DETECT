@@ -730,13 +730,16 @@ def get_embeddings_with_cache(texts, model, client):
 
         # 2. Batch embed uncached with error handling
         if to_embed:
+            # Strip 'azure/' prefix if present - native Azure SDK doesn't use it
+            model_name = model.replace('azure/', '') if model.startswith('azure/') else model
+            
             def embed_batch_with_retry(batch_texts, batch_indices):
                 """Embed a batch of texts with retry logic by dividing on error"""
                 if not batch_texts:
                     return
                 
                 try:
-                    response = client.embeddings.create(input=batch_texts, model=model)
+                    response = client.embeddings.create(input=batch_texts, model=model_name)
                     # Assuming response.data is ordered and each .embedding is the vector
                     for i, emb in zip(batch_indices, response.data):
                         cache[keys[i]] = emb.embedding
