@@ -28,7 +28,7 @@ logger.info(f"{EMBEDDING_MODEL=}, {REASONING_MODEL=} {AZURE_API_KEY=}, {AZURE_AP
 if AZURE_API_KEY:
     client = AzureOpenAI(
         api_key=AZURE_API_KEY,
-        endpoint=AZURE_API_BASE,
+        azure_endpoint=AZURE_API_BASE,
         api_version=AZURE_API_VERSION
     )
 else:
