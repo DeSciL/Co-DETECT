@@ -37,9 +37,6 @@ TOGETHER_AI_API_BASE = os.getenv('TOGETHER_AI_API_BASE', None)
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', None)
 ANTHROPIC_API_BASE = os.getenv('ANTHROPIC_API_BASE', None)
 
-GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', None)
-GOOGLE_API_BASE = os.getenv('GOOGLE_API_BASE', None)
-
 # Environment-based model configurations
 ANNOTATION_MODEL = os.getenv('ANNOTATION_MODEL', 'gpt-4.1')  # Annotation model for primary text annotations
 REASONING_MODEL = os.getenv('REASONING_MODEL', 'deepseek-reasoner')  # For guideline synthesis
@@ -113,9 +110,6 @@ if TOGETHER_AI_API_BASE and TOGETHER_AI_API_KEY:
 
 if ANTHROPIC_API_BASE and ANTHROPIC_API_KEY:
     logger.info(f"Using custom Anthropic API base: {ANTHROPIC_API_BASE}")
-
-if GOOGLE_API_BASE and GOOGLE_API_KEY:
-    logger.info(f"Using custom Google API base: {GOOGLE_API_BASE}")
 
 INPUT_COST_DICT = {
     'o1': 15,
