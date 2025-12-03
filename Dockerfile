@@ -1,4 +1,5 @@
 FROM python:3.12-slim
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends g++ && \
@@ -6,9 +7,9 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# Install Python packages
+# Install Python packages using uv
 COPY annotation_fastapi/requirements_prod.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN uv pip install --system --no-cache -r requirements.txt
 
 # Copy application code
 COPY annotation_fastapi/ ./
