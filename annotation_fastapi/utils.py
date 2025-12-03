@@ -18,9 +18,9 @@ from dotenv import load_dotenv
 load_dotenv()  # Load environment variables from .env file
 
 # Azure OpenAI configuration
-AZURE_OPENAI_API_KEY = os.getenv('AZURE_OPENAI_API_KEY')
-if not AZURE_OPENAI_API_KEY:
-    raise ValueError("AZURE_OPENAI_API_KEY environment variable is required")
+AZURE_API_KEY = os.getenv('AZURE_API_KEY')
+if not AZURE_API_KEY:
+    raise ValueError("AZURE_API_KEY environment variable is required")
 
 # Model connection strings (format: "https://resource.openai.azure.com/openai/deployments/model")
 ANNOTATION_MODEL_CONNECTION_STRING = os.getenv('ANNOTATION_MODEL_CONNECTION_STRING')
@@ -36,7 +36,7 @@ if not EMBEDDING_MODEL_CONNECTION_STRING:
     raise ValueError("EMBEDDING_MODEL_CONNECTION_STRING environment variable is required")
 
 # Legacy openai.api_key for backward compatibility
-openai.api_key = AZURE_OPENAI_API_KEY
+openai.api_key = AZURE_API_KEY
 
 logging.basicConfig(
     level=logging.INFO,
@@ -58,7 +58,7 @@ MODEL_DICT = {
 }
 
 # Override MODEL_DICT for Azure deployments if Azure keys are present
-if AZURE_OPENAI_API_KEY:
+if AZURE_API_KEY:
     logger.info("Using Azure OpenAI deployments")
     MODEL_DICT.update({
         'o1': 'azure/o1',
@@ -103,7 +103,7 @@ def get_model_client(connection_string):
     if provider == 'azure':
         from openai import AzureOpenAI
         return AzureOpenAI(
-            api_key=AZURE_OPENAI_API_KEY,
+            api_key=AZURE_API_KEY,
             azure_endpoint=base_url,
             api_version=api_version
         )
@@ -117,6 +117,16 @@ def get_litellm_model_name(connection_string):
         return f"azure/{model}"
     else:
         raise ValueError(f"Unsupported provider: {provider}")
+
+# Configure LiteLLM for Azure after parse_connection_string is defined
+os.environ['AZURE_API_KEY'] = AZURE_API_KEY
+
+# Parse the first connection string to set up LiteLLM environment variables
+if ANNOTATION_MODEL_CONNECTION_STRING:
+    _, model, base_url, api_version = parse_connection_string(ANNOTATION_MODEL_CONNECTION_STRING)
+    os.environ['AZURE_API_BASE'] = base_url.rstrip('/')
+    os.environ['AZURE_API_VERSION'] = api_version
+    logger.info(f"Configured LiteLLM: AZURE_API_BASE={base_url.rstrip('/')}, AZURE_API_VERSION={api_version}")
 
 INPUT_COST_DICT = {
     'o1': 15,

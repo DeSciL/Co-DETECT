@@ -1,7 +1,7 @@
 import json
 import numpy as np
 import pandas as pd
-from utils import read_file_content, call_openai_annotation, parse_json_output, call_openai, parse_aggregation, parse_merge, get_embeddings_with_cache, EMBEDDING_MODEL_CONNECTION_STRING, REASONING_MODEL_CONNECTION_STRING, get_model_client, AZURE_OPENAI_API_KEY
+from utils import read_file_content, call_openai_annotation, parse_json_output, call_openai, parse_aggregation, parse_merge, get_embeddings_with_cache, EMBEDDING_MODEL_CONNECTION_STRING, REASONING_MODEL_CONNECTION_STRING, get_model_client, AZURE_API_KEY
 from typing import List, Dict
 from fastapi import UploadFile
 import logging
@@ -22,7 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger("services")  # Create/retrieve a named logger
 logger.setLevel(logging.INFO)
 
-logger.info(f"{EMBEDDING_MODEL_CONNECTION_STRING=}, {REASONING_MODEL_CONNECTION_STRING=} {AZURE_OPENAI_API_KEY=}")
+logger.info(f"{EMBEDDING_MODEL_CONNECTION_STRING=}, {REASONING_MODEL_CONNECTION_STRING=}")
 
 # Configure OpenAI client for Azure
 embedding_client = get_model_client(EMBEDDING_MODEL_CONNECTION_STRING)
