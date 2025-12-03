@@ -492,8 +492,9 @@ async def process_annotation_one_json(
     df["new_edge_case"] = [data_parsed["new_edge_case"]]
     df["guideline_improvement"] = [data_parsed["new_edge_case_rule"]]
 
-    if df["guideline_improvement"][0] is not None and df["new_edge_case"][0] == True:
-        edge_case_description = df["guideline_improvement"][0].strip() if '->' not in df["guideline_improvement"][0] else df["guideline_improvement"][0].split('->')[0].strip()
+    if df["guideline_improvement"][0] is not None and df["guideline_improvement"][0] != "EMPTY" and df["new_edge_case"][0] == True:
+        improvement_text = df["guideline_improvement"][0]
+        edge_case_description = improvement_text.strip() if '->' not in improvement_text else improvement_text.split('->')[0].strip()
         edge_case_rule_embedding = get_embeddings_with_cache([edge_case_description], EMBEDDING_MODEL_CONNECTION_STRING, embedding_client)
         # Load cluster PCA model
         if os.path.exists(f'models/pca_model_{task_id}_cluster{round_string}.pkl'):
