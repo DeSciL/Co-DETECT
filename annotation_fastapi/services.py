@@ -1,7 +1,7 @@
 import json
 import numpy as np
 import pandas as pd
-from utils import read_file_content, call_openai_annotation, parse_json_output, call_openai, parse_aggregation, parse_merge, get_embeddings_with_cache, EMBEDDING_MODEL, REASONING_MODEL, AZURE_API_KEY, AZURE_API_BASE, AZURE_API_VERSION, OPENAI_API_KEY, OPENAI_API_BASE
+from utils import read_file_content, call_openai_annotation, parse_json_output, call_openai, parse_aggregation, parse_merge, get_embeddings_with_cache, EMBEDDING_MODEL_CONNECTION_STRING, REASONING_MODEL_CONNECTION_STRING, get_model_client, AZURE_OPENAI_API_KEY
 from typing import List, Dict
 from fastapi import UploadFile
 import logging
@@ -22,21 +22,10 @@ logging.basicConfig(
 logger = logging.getLogger("services")  # Create/retrieve a named logger
 logger.setLevel(logging.INFO)
 
-logger.info(f"{EMBEDDING_MODEL=}, {REASONING_MODEL=} {AZURE_API_KEY=}, {AZURE_API_BASE=}, {AZURE_API_VERSION=}, {OPENAI_API_KEY=}, {OPENAI_API_BASE=}")
+logger.info(f"{EMBEDDING_MODEL_CONNECTION_STRING=}, {REASONING_MODEL_CONNECTION_STRING=} {AZURE_OPENAI_API_KEY=}")
 
-# Configure OpenAI client for Azure or direct API
-if AZURE_API_KEY:
-    client = AzureOpenAI(
-        api_key=AZURE_API_KEY,
-        azure_endpoint=AZURE_API_BASE,
-        api_version=AZURE_API_VERSION
-    )
-else:
-    # Use custom OpenAI API base if provided, otherwise default
-    client_kwargs = {"api_key": OPENAI_API_KEY}
-    if OPENAI_API_BASE:
-        client_kwargs["base_url"] = OPENAI_API_BASE
-    client = OpenAI(**client_kwargs)
+# Configure OpenAI client for Azure
+embedding_client = get_model_client(EMBEDDING_MODEL_CONNECTION_STRING)
 
 AGGREGATION_RPOMPT = """I am annotating the following task:
 
@@ -118,7 +107,7 @@ def cluster_texts_with_pca(df, text_column='text_to_annotate', task_id=None, n_c
     logger = logging.getLogger("services")
 
     # Encode text into embeddings
-    embeddings = get_embeddings_with_cache(df[text_column].tolist(), EMBEDDING_MODEL, client)
+    embeddings = get_embeddings_with_cache(df[text_column].tolist(), EMBEDDING_MODEL_CONNECTION_STRING, embedding_client)
 
     pca = None
     kmeans = None
@@ -164,7 +153,7 @@ async def synthesize_guideline_improvements(df, guideline_text, task_id: str = N
     # Get text and embeddings
     suggestions = df["guideline_improvement"].tolist()
     case_descriptions = [s.strip(' \n') if '->' not in s else s.split('->')[0].strip() for s in suggestions]
-    embeddings = get_embeddings_with_cache(case_descriptions, EMBEDDING_MODEL, client)
+    embeddings = get_embeddings_with_cache(case_descriptions, EMBEDDING_MODEL_CONNECTION_STRING, embedding_client)
     
     # Determine appropriate number of clusters based on data size
     data_size = len(suggestions)
@@ -279,7 +268,7 @@ async def synthesize_guideline_improvements(df, guideline_text, task_id: str = N
 
     logger.info(f"One example aggregation prompt: {all_messages[0][0]['content']}")
     # Send to reasoning model
-    summaries = await call_openai(all_messages, model=REASONING_MODEL)
+    summaries = await call_openai(all_messages, REASONING_MODEL_CONNECTION_STRING)
     for cluster_id, response in enumerate(summaries):
         current_cluster_results = parse_aggregation(response)
         for category in current_cluster_results:
@@ -299,7 +288,7 @@ async def synthesize_guideline_improvements(df, guideline_text, task_id: str = N
         logger.info(f'Number of new rule before merge: {len(new_rules)}.')
         cases_to_merge = "\n".join(f"{i+1}. {k}" for i, (k, v) in enumerate(new_rules.items()))
         merge_message = [{'role': 'user', 'content': MERGE_PROMPT.format(guideline=guideline_text, edge_case=cases_to_merge)}]
-        final_aggregate = await call_openai([merge_message], model=REASONING_MODEL)
+        final_aggregate = await call_openai([merge_message], REASONING_MODEL_CONNECTION_STRING)
         merge_suggestions = parse_merge(final_aggregate[0])
 
         merged_rules = OrderedDict()
@@ -480,7 +469,7 @@ async def process_annotation_one_json(
     df = pd.DataFrame({"text_to_annotate": [example], "uid": [uid]})
 
     # Get embedding for the single example
-    embeddings = get_embeddings_with_cache([example], EMBEDDING_MODEL, client)
+    embeddings = get_embeddings_with_cache([example], EMBEDDING_MODEL_CONNECTION_STRING, embedding_client)
     
     # Transform embedding using PCA
     reduced = pca_model.transform(embeddings)
@@ -504,7 +493,7 @@ async def process_annotation_one_json(
 
     if df["guideline_improvement"][0] is not None and df["new_edge_case"][0] == True:
         edge_case_description = df["guideline_improvement"][0].strip() if '->' not in df["guideline_improvement"][0] else df["guideline_improvement"][0].split('->')[0].strip()
-        edge_case_rule_embedding = get_embeddings_with_cache([edge_case_description], EMBEDDING_MODEL, client)
+        edge_case_rule_embedding = get_embeddings_with_cache([edge_case_description], EMBEDDING_MODEL_CONNECTION_STRING, embedding_client)
         # Load cluster PCA model
         if os.path.exists(f'models/pca_model_{task_id}_cluster{round_string}.pkl'):
             with open(f'models/pca_model_{task_id}_cluster{round_string}.pkl', 'rb') as f:

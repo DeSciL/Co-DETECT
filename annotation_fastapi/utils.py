@@ -17,31 +17,26 @@ from dotenv import load_dotenv
 
 load_dotenv()  # Load environment variables from .env file
 
-# OpenAI configuration
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', None)
-OPENAI_API_BASE = os.getenv('OPENAI_API_BASE', None)
-
 # Azure OpenAI configuration
-AZURE_API_KEY = os.getenv('AZURE_API_KEY', None)
-AZURE_API_BASE = os.getenv('AZURE_API_BASE', None) 
-AZURE_API_VERSION = os.getenv('AZURE_API_VERSION', '2024-02-01')
+AZURE_OPENAI_API_KEY = os.getenv('AZURE_OPENAI_API_KEY')
+if not AZURE_OPENAI_API_KEY:
+    raise ValueError("AZURE_OPENAI_API_KEY environment variable is required")
 
-# DeepSeek configuration (for custom GPU cluster)
-DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY', None)
-DEEPSEEK_API_BASE = os.getenv('DEEPSEEK_API_BASE', None)
+# Model connection strings (format: "https://resource.openai.azure.com/openai/deployments/model")
+ANNOTATION_MODEL_CONNECTION_STRING = os.getenv('ANNOTATION_MODEL_CONNECTION_STRING')
+if not ANNOTATION_MODEL_CONNECTION_STRING:
+    raise ValueError("ANNOTATION_MODEL_CONNECTION_STRING environment variable is required")
 
-# Other provider configurations
-TOGETHER_AI_API_KEY = os.getenv('TOGETHER_AI_API_KEY', None)
-TOGETHER_AI_API_BASE = os.getenv('TOGETHER_AI_API_BASE', None)
+REASONING_MODEL_CONNECTION_STRING = os.getenv('REASONING_MODEL_CONNECTION_STRING')
+if not REASONING_MODEL_CONNECTION_STRING:
+    raise ValueError("REASONING_MODEL_CONNECTION_STRING environment variable is required")
 
-ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', None)
-ANTHROPIC_API_BASE = os.getenv('ANTHROPIC_API_BASE', None)
+EMBEDDING_MODEL_CONNECTION_STRING = os.getenv('EMBEDDING_MODEL_CONNECTION_STRING')
+if not EMBEDDING_MODEL_CONNECTION_STRING:
+    raise ValueError("EMBEDDING_MODEL_CONNECTION_STRING environment variable is required")
 
-# Environment-based model configurations
-ANNOTATION_MODEL = os.getenv('ANNOTATION_MODEL', 'gpt-4.1')  # Annotation model for primary text annotations
-REASONING_MODEL = os.getenv('REASONING_MODEL', 'deepseek-reasoner')  # For guideline synthesis
-
-openai.api_key = AZURE_API_KEY or OPENAI_API_KEY
+# Legacy openai.api_key for backward compatibility
+openai.api_key = AZURE_OPENAI_API_KEY
 
 logging.basicConfig(
     level=logging.INFO,
@@ -52,6 +47,7 @@ logger = logging.getLogger("utils")  # Create/retrieve a named logger
 logger.setLevel(logging.INFO)
 logging.getLogger("LiteLLM").setLevel(logging.WARNING)
 
+# Simplified model dictionary - only OpenAI and Azure supported
 MODEL_DICT = {
     'o1': 'o1',
     'o3-mini': 'o3-mini',
@@ -59,57 +55,67 @@ MODEL_DICT = {
     'gpt-4o': 'gpt-4o',
     'gpt-4.1': 'gpt-4.1-2025-04-14',
     'gpt-5': 'gpt-5',
-    # 'deepseek-chat': 'together_ai/deepseek-ai/DeepSeek-V3',
-    # 'deepseek-reasoner': "together_ai/deepseek-ai/DeepSeek-R1",
-    'deepseek-chat': 'deepseek/deepseek-chat',
-    'deepseek-reasoner': "deepseek/deepseek-reasoner",
-    'qwq-32b': 'together_ai/Qwen/QwQ-32B',
-    'sonnet-3.7-high': "anthropic/claude-3-7-sonnet-20250219",
-    'gemini-2.5-pro': "gemini/gemini-2.5-pro-preview-03-25",
-    'llama_405': "together_ai/meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
-    'llama_70': "together_ai/meta-llama/Llama-3.3-70B-Instruct-Turbo",
-    'llama4_maverick': "together_ai/meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
-    'gemma3': "together_ai/google/gemma-3-12b-it",
 }
 
 # Override MODEL_DICT for Azure deployments if Azure keys are present
-if AZURE_API_KEY:
+if AZURE_OPENAI_API_KEY:
     logger.info("Using Azure OpenAI deployments")
     MODEL_DICT.update({
         'o1': 'azure/o1',
         'o3-mini': 'azure/o3-mini', 
         'gpt-4o-mini': 'azure/gpt-4o-mini',
-        'gpt-4o': 'azure/gpt-4o',
+        'gpt-4o': 'gpt-4o',
         'gpt-4.1': 'azure/gpt-4.1',
         'gpt-5': 'azure/gpt-5',
     })
 
-# DeepSeek models are not typically available on Azure OpenAI, dynamic embedding
-# model selection (Azure prefix if using Azure)
-if AZURE_API_KEY and 'azure' not in os.getenv('EMBEDDING_MODEL', ''):
-    EMBEDDING_MODEL = f"azure/{os.getenv('EMBEDDING_MODEL', 'text-embedding-3-large')}"
-else:
-    EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'text-embedding-3-large')
+# Helper functions for model connection strings
+def parse_connection_string(connection_string):
+    """Parse connection string like 'https://resource.openai.azure.com/openai/deployments/model'"""
+    if not connection_string:
+        raise ValueError("Connection string cannot be empty")
+    
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(connection_string)
+        base_url = f"{parsed.scheme}://{parsed.netloc}/"
+        # Extract model from path like /openai/deployments/{model}
+        path_parts = parsed.path.strip('/').split('/')
+        if 'deployments' in path_parts:
+            model_index = path_parts.index('deployments') + 1
+            model = path_parts[model_index] if len(path_parts) > model_index else None
+        else:
+            model = None
+        if not model:
+            raise ValueError(f"Could not extract model name from connection string: {connection_string}")
+        
+        # Default API version if not specified
+        api_version = '2024-02-01'
+        
+        return 'azure', model, base_url, api_version
+    except Exception as e:
+        raise ValueError(f"Error parsing connection string '{connection_string}': {e}")
 
-# Configure LiteLLM for custom API bases
-# Set up custom API bases for different providers
-if OPENAI_API_BASE and OPENAI_API_KEY:
-    litellm.api_base = OPENAI_API_BASE
-    logger.info(f"Using custom OpenAI API base: {OPENAI_API_BASE}")
+def get_model_client(connection_string):
+    """Get the appropriate client for a connection string"""
+    provider, model, base_url, api_version = parse_connection_string(connection_string)
+    if provider == 'azure':
+        from openai import AzureOpenAI
+        return AzureOpenAI(
+            api_key=AZURE_OPENAI_API_KEY,
+            azure_endpoint=base_url,
+            api_version=api_version
+        )
+    else:
+        raise ValueError(f"Unsupported provider: {provider}")
 
-if AZURE_API_BASE and AZURE_API_KEY:
-    logger.info(f"Using Azure OpenAI API base: {AZURE_API_BASE}")
-
-if DEEPSEEK_API_BASE and DEEPSEEK_API_KEY:
-    # Configure custom DeepSeek endpoint
-    litellm.set_verbose = False  # Reduce logging noise
-    logger.info(f"Using custom DeepSeek API base: {DEEPSEEK_API_BASE}")
-
-if TOGETHER_AI_API_BASE and TOGETHER_AI_API_KEY:
-    logger.info(f"Using custom Together AI API base: {TOGETHER_AI_API_BASE}")
-
-if ANTHROPIC_API_BASE and ANTHROPIC_API_KEY:
-    logger.info(f"Using custom Anthropic API base: {ANTHROPIC_API_BASE}")
+def get_litellm_model_name(connection_string):
+    """Get the LiteLLM model name for a connection string"""
+    provider, model, base_url, api_version = parse_connection_string(connection_string)
+    if provider == 'azure':
+        return f"azure/{model}"
+    else:
+        raise ValueError(f"Unsupported provider: {provider}")
 
 INPUT_COST_DICT = {
     'o1': 15,
@@ -118,17 +124,6 @@ INPUT_COST_DICT = {
     'gpt-4o': 2.5,
     'gpt-4.1': 2,
     'gpt-5': 5,
-    'deepseek-chat': 0.27,
-    'deepseek-reasoner': 0.55,
-    # 'deepseek-chat': 1.25,
-    # 'deepseek-reasoner': 3,
-    'qwq-32b': 1.2,
-    'sonnet-3.7-high': 3,
-    'gemini-2.5-pro': 1.25,
-    'llama_405': 3.5,
-    'llama_70': 0.88,
-    'llama4_maverick': 0.27,
-    'gemma3': 0.3,
 }
 OUTPUT_COST_DICT = {
     'o1': 60,
@@ -475,11 +470,15 @@ VERSION = 'version_7'
 
 
 def get_input_price(model, input_len=None):
+    if input_len is None or model not in INPUT_COST_DICT:
+        return 0
     input_cost = input_len / 1000000 * INPUT_COST_DICT[model]
     return input_cost
 
 
 def get_output_price(model, output_len=None):
+    if output_len is None or model not in OUTPUT_COST_DICT:
+        return 0
     output_cost = output_len / 1000000 * OUTPUT_COST_DICT[model]
     return output_cost
 
@@ -588,8 +587,9 @@ def parse_json_output(response, labels):
             elif 'confidence' in line:
                 try:
                     score_match = re.search(r'\d+\.?\d*', line)
-                    score = float(score_match.group())
-                    confidence_score = score
+                    if score_match:
+                        score = float(score_match.group())
+                        confidence_score = score
                 except Exception as e:
                     pass
         data = {
@@ -615,9 +615,15 @@ async def read_file_content(uploaded_file):
 async def call_openai_annotation(texts: List[str], guideline: str) -> List[str]:
     prompts_to_run = [ANNOTATION_PROMPT[VERSION].format(guideline=guideline, text=t) for t in texts]
     messages = [[{'role': 'system', 'content': SYSTEM_PROMPT}, {'role': 'user', 'content': p}] for p in prompts_to_run]
+    
+    # Use annotation model connection string
+    connection_string = ANNOTATION_MODEL_CONNECTION_STRING
+    litellm_model = get_litellm_model_name(connection_string)
+    _, model_name, _, _ = parse_connection_string(connection_string)
+    
     total_cost = 0
     while True:
-        responses, err_batches, cost = await create_answers_async(ANNOTATION_MODEL, messages, cache_path=os.path.join('openai_cache', f"openai.diskcache"), generation_args=GENE_ARGS_DICT[ANNOTATION_MODEL])
+        responses, err_batches, cost = await create_answers_async(litellm_model, messages, cache_path=os.path.join('openai_cache', f"openai.diskcache"), generation_args=GENE_ARGS_DICT[model_name])
         total_cost += cost
         if len(err_batches) == 0:
             break
@@ -625,12 +631,20 @@ async def call_openai_annotation(texts: List[str], guideline: str) -> List[str]:
     return responses
 
 
-async def call_openai(messages, model) -> List[str]:
+async def call_openai(messages, connection_string) -> List[str]:
+    # Handle None connection string
+    if connection_string is None:
+        raise ValueError("Connection string is required")
+    
+    # Parse connection string to get LiteLLM model name
+    litellm_model = get_litellm_model_name(connection_string)
+    _, model_name, _, _ = parse_connection_string(connection_string)
+    
     total_cost = 0
     while True:
-        responses, err_batches, cost = await create_answers_async(model, messages,
+        responses, err_batches, cost = await create_answers_async(litellm_model, messages,
                                                                   cache_path=os.path.join('openai_cache',
-                                                                                          f"{model}.diskcache"), generation_args=GENE_ARGS_DICT[model])
+                                                                                          f"{connection_string}.diskcache"), generation_args=GENE_ARGS_DICT[model_name])
         total_cost += cost
         if len(err_batches) == 0:
             break
@@ -702,23 +716,24 @@ def parse_merge(response):
         return result
 
 
-def get_embeddings_with_cache(texts, model, client):
+def get_embeddings_with_cache(texts, connection_string, client):
     """
-    Returns the embedding for a given text and model, using diskcache for caching.
+    Returns the embedding for a given text and connection string, using diskcache for caching.
     If embedding is cached, returns from cache. Otherwise, computes and stores in cache.
     If there's an error, divides the batch and retries.
 
     Args:
-        text (str): The text to embed.
-        model (str): Embedding model name.
+        texts (list): List of texts to embed.
+        connection_string (str): Connection string like 'azure/text-embedding-3-large'
         client: The embedding client (must have embeddings.create method).
-        cache_dir (str): Directory for diskcache.
 
     Returns:
         embedding (list/np.ndarray): The embedding vector.
     """
     with dc.Cache(os.path.join('openai_cache', f"embedding.diskcache")) as cache:
-        keys = [(text, model) for text in texts]
+        # Parse connection string to get model name for caching
+        _, model_name, _, _ = parse_connection_string(connection_string)
+        keys = [(text, connection_string) for text in texts]  # Use full connection string for cache key
 
         # 1. Find uncached texts
         to_embed = []
@@ -730,8 +745,8 @@ def get_embeddings_with_cache(texts, model, client):
 
         # 2. Batch embed uncached with error handling
         if to_embed:
-            # Strip 'azure/' prefix if present - native Azure SDK doesn't use it
-            model_name = model.replace('azure/', '') if model.startswith('azure/') else model
+            # Use the parsed model name for API calls (strip azure/ prefix if present)
+            api_model_name = model_name
             
             def embed_batch_with_retry(batch_texts, batch_indices):
                 """Embed a batch of texts with retry logic by dividing on error"""
@@ -739,7 +754,7 @@ def get_embeddings_with_cache(texts, model, client):
                     return
                 
                 try:
-                    response = client.embeddings.create(input=batch_texts, model=model_name)
+                    response = client.embeddings.create(input=batch_texts, model=api_model_name)
                     # Assuming response.data is ordered and each .embedding is the vector
                     for i, emb in zip(batch_indices, response.data):
                         cache[keys[i]] = emb.embedding
