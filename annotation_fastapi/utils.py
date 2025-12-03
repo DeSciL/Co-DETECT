@@ -159,7 +159,7 @@ GENE_ARGS_DICT = {
     'gpt-4o-mini': {'temperature': 0, 'max_tokens': 4096, 'seed': 42},
     'gpt-4o': {'temperature': 0, 'max_tokens': 4096, 'seed': 42},
     'gpt-4.1': {'temperature': 0, 'max_tokens': 4096, 'seed': 42},
-    'gpt-5': {'temperature': 0, 'max_tokens': 8192, 'seed': 42},
+    'gpt-5': {'temperature': 1, 'max_tokens': 8192},  # gpt-5 only supports temperature=1
     'deepseek-reasoner': {'temperature': 0.6, 'max_tokens': 8192},
     'qwq-32b': {'temperature': 0.6, 'top_p': 0.95, 'max_tokens': 8192},
     'o3-mini': {'reasoning_effort': 'high', 'max_tokens': 8192, 'seed': 42},
