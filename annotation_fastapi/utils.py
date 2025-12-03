@@ -160,10 +160,11 @@ GENE_ARGS_DICT = {
     'gpt-4o': {'temperature': 0, 'max_tokens': 4096, 'seed': 42},
     'gpt-4.1': {'temperature': 0, 'max_tokens': 4096, 'seed': 42},
     'gpt-5': {'temperature': 1, 'max_tokens': 8192},  # gpt-5 only supports temperature=1
+    'o1': {'max_completion_tokens': 8192},  # o1 uses max_completion_tokens, no temperature/seed
+    'o3-mini': {'reasoning_effort': 'high', 'max_completion_tokens': 8192},  # o3 uses max_completion_tokens
     'deepseek-reasoner': {'temperature': 0.6, 'max_tokens': 8192},
     'qwq-32b': {'temperature': 0.6, 'top_p': 0.95, 'max_tokens': 8192},
-    'o3-mini': {'reasoning_effort': 'high', 'max_tokens': 8192, 'seed': 42},
-    'sonnet-3.7-high': {'reasoning_effort': 'high', 'max_tokens': 8192},
+    'sonnet-3.7-high': {'temperature': 1, 'max_tokens': 8192},  # Claude uses standard params
     'gemini-2.5-pro': {'max_tokens': 8192},
     'deepseek-chat': {'temperature': 0, 'max_tokens': 4096},
     'llama_405': {'temperature': 0, 'max_tokens': 4096},
