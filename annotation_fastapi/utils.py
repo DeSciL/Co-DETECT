@@ -71,15 +71,16 @@ if AZURE_OPENAI_API_KEY:
 
 # Helper functions for model connection strings
 def parse_connection_string(connection_string):
-    """Parse connection string like 'https://resource.openai.azure.com/openai/deployments/model'"""
+    """Parse connection string like 'https://resource.openai.azure.com/openai/deployments/model' or with full path"""
     if not connection_string:
         raise ValueError("Connection string cannot be empty")
     
     try:
-        from urllib.parse import urlparse
+        from urllib.parse import urlparse, parse_qs
         parsed = urlparse(connection_string)
         base_url = f"{parsed.scheme}://{parsed.netloc}/"
-        # Extract model from path like /openai/deployments/{model}
+        
+        # Extract model from path like /openai/deployments/{model} or /openai/deployments/{model}/chat/completions
         path_parts = parsed.path.strip('/').split('/')
         if 'deployments' in path_parts:
             model_index = path_parts.index('deployments') + 1
@@ -89,8 +90,8 @@ def parse_connection_string(connection_string):
         if not model:
             raise ValueError(f"Could not extract model name from connection string: {connection_string}")
         
-        # Default API version if not specified
-        api_version = '2024-02-01'
+        # Extract API version from query string if present, otherwise use default
+        api_version = parse_qs(parsed.query).get('api-version', ['2024-02-01'])[0]
         
         return 'azure', model, base_url, api_version
     except Exception as e:
@@ -146,6 +147,7 @@ OUTPUT_COST_DICT = {
 }
 GENE_ARGS_DICT = {
     'gpt-4o-mini': {'temperature': 0, 'max_tokens': 4096, 'seed': 42},
+    'gpt-4o': {'temperature': 0, 'max_tokens': 4096, 'seed': 42},
     'gpt-4.1': {'temperature': 0, 'max_tokens': 4096, 'seed': 42},
     'gpt-5': {'temperature': 0, 'max_tokens': 8192, 'seed': 42},
     'deepseek-reasoner': {'temperature': 0.6, 'max_tokens': 8192},
