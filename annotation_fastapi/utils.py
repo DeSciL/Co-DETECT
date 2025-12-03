@@ -594,6 +594,7 @@ def parse_json_output(response, labels):
         res_lines = response.split('\n')
         annotation = -1
         edge_case_rule = None
+        new_edge_case = False  # Initialize with default value
         # rule_label = None
         confidence_score = 50.0
         for line in res_lines:
