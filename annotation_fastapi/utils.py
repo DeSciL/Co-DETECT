@@ -508,7 +508,14 @@ async def achat(model, messages, generation_args):
         reasoning_content = output.choices[0].message.reasoning_content
     except Exception as e:
         reasoning_content = None
-    return output.choices[0].message.content, reasoning_content, input_token_num, output_token_num
+    
+    content = output.choices[0].message.content
+    if content is None:
+        logger.error(f"API returned None content for model {model}. Full response: {output}")
+        # Return empty JSON structure instead of None
+        content = '{"analysis": "Error: API returned no content", "annotation": -1, "confidence": 0, "new_edge_case": false, "new_edge_case_rule": "EMPTY"}'
+    
+    return content, reasoning_content, input_token_num, output_token_num
 
 
 def batchify(lst, batch_size):
