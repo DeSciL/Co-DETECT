@@ -146,7 +146,8 @@ def cluster_texts_with_pca(df, text_column='text_to_annotate', task_id=None, n_c
 
 
 async def synthesize_guideline_improvements(df, guideline_text, task_id: str = None, round_string=""):
-    # Filter non-empty suggestions
+    # Filter non-empty suggestions and None values
+    df = df[df["guideline_improvement"].notna()].copy()  # Remove None/NaN values
     df = df[df["guideline_improvement"].str.strip().str.upper() != "EMPTY"].copy()
     if df.empty:
         return {}, []
