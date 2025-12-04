@@ -151,7 +151,7 @@ Open [**Local Host**](http://localhost:5173)
 ## Citation
 
 If you find our work helpful, please consider citing us: 
-```shell
+```sh
 @article{xiong2025co,
   title={Co-DETECT: Collaborative Discovery of Edge Cases in Text Classification},
   author={Xiong, Chenfei and Ni, Jingwei and Fan, Yu and Zouhar, Vil{\'e}m and Rooein, Donya and Calvo-Bartolom{\'e}, Lorena and Hoyle, Alexander and Jin, Zhijing and Sachan, Mrinmaya and Leippold, Markus and others},
