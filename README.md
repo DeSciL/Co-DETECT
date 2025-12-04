@@ -35,25 +35,23 @@ conda create -n co_detect python=3.11.10
 conda activate co_detect
 ```
 
-### 0. API Key Configuration
+### 0. Environment Variable Configuration
 
-To use live API calls in Backend Mode, create `.env` file in `/annotation_fastapi/`:
+To use live API calls in Backend Mode, create a `.env` file in `/annotation_fastapi/` with the following variables:
+
 ```bash
-OPENAI_API_KEY=your_openai_api_key_here
-DEEPSEEK_API_KEY=your_deepseek_api_key_here
-```
-**Note**: Backend Mode always makes real OpenAI and DeepSeek API calls, so ensure your API keys are set.
+# Required for all Azure OpenAI requests
+AZURE_API_KEY=your_azure_api_key_here
 
-This was extended to support Azure OpenAI as well as custom API bases. Please refer to the [**environment variables configuration**](annotation_fastapi/utils.py) for details.
-
-In summary, to use Azure OpenAI gpt-4o for annotation and Azure OpenAI gpt-5 for reasoning, your `.env` file should look like:
-```bash
-AZURE_API_KEY=your_AZURE_API_KEY_here
-AZURE_ENDPOINT=https://your-azure-endpoint.openai.azure.com
-AZURE_VERSION=2023-12-01-preview
-ANNOTATION_MODEL=azure/gpt-4o
-REASONING_MODEL=azure/gpt-5
+# Each model uses its own connection string (endpoint, deployment, API version)
+ANNOTATION_MODEL_CONNECTION_STRING="https://your-azure-endpoint.openai.azure.com/openai/deployments/gpt-4o?api-version=2023-12-01-preview"
+REASONING_MODEL_CONNECTION_STRING="https://your-azure-endpoint.openai.azure.com/openai/deployments/gpt-5?api-version=2023-12-01-preview"
+EMBEDDING_MODEL_CONNECTION_STRING="https://your-azure-endpoint.openai.azure.com/openai/deployments/text-embedding-ada-002?api-version=2023-12-01-preview"
 ```
+
+**Note**: Each model (annotation, reasoning, embedding) must have its own Azure connection string. See `annotation_fastapi/utils.py` for details.
+
+Backend Mode always makes real Azure OpenAI API calls, so ensure your API key and connection strings are set.
 
 ### 1. Launch Backend (Only for Backend Mode)
 ```bash
