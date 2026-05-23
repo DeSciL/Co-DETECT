@@ -2,8 +2,8 @@ name: Docker CI
 
 on:
   push:
-    tags:     # Pattern matched against refs/tags
-      - '*'   # Push events to every tag not containing /
+    tags:    # Pattern matched against refs/tags
+      - '*'
 
   # push:
   #   branches: [ "main" ]
@@ -11,7 +11,6 @@ on:
   #   branches: [ "main" ]
 
   # Allows to run this workflow from the Actions tab
-  # Selet a tag to build a versioned docker release
   workflow_dispatch:
 
 env:
@@ -20,22 +19,32 @@ env:
   ORG: descil
   REPO: datascience
   LABEL: codetect
+  FRONTEND_LABEL: codetect-frontend
   NS: led
 
 jobs:
   build:
     runs-on: descil-runners
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     - uses: actions/checkout@v4
 
     - name: Get latest tag pushed
       id: tag
       uses: 32teeth/action-github-tag@v1.0.7
+      if: startsWith(github.ref, 'refs/tags/')
 
-    - name: Return latest tag pushed
-      run: echo ${{steps.tag.outputs.tag}}
+    - name: Set TAG variable
+      id: set_tag
+      run: |
+        if [ -z "${{ steps.tag.outputs.tag }}" ]; then
+          echo "tag=latest" >> $GITHUB_OUTPUT
+        else
+          echo "tag=${{ steps.tag.outputs.tag }}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Show tag used
+      run: echo ${{ steps.set_tag.outputs.tag }}
 
     - name: Login to GitLab
       uses: docker/login-action@v3
@@ -44,14 +53,46 @@ jobs:
         username: ${{ secrets.DESCIL_REGISTRY_USER }}
         password: ${{ secrets.DESCIL_REGISTRY_PASSWORD }}
 
-    - name: Build the Docker image
-      run: docker build . --file $FOLDER/Dockerfile --tag $REGISTRY/$ORG/$REPO/$LABEL:${{steps.tag.outputs.tag}} --build-arg http_proxy="http://proxy.ethz.ch:3128" --build-arg https_proxy="http://proxy.ethz.ch:3128"
+    - name: Build the Backend Docker image
+      run: docker build . --file $FOLDER/Dockerfile --tag $REGISTRY/$ORG/$REPO/$LABEL:${{steps.set_tag.outputs.tag}} --build-arg http_proxy="http://proxy.ethz.ch:3128" --build-arg https_proxy="http://proxy.ethz.ch:3128"
 
-    - name: Push the Docker image
-      run: docker push $REGISTRY/$ORG/$REPO/$LABEL:${{steps.tag.outputs.tag}}
+    - name: Push the Backend Docker image
+      run: docker push $REGISTRY/$ORG/$REPO/$LABEL:${{steps.set_tag.outputs.tag}}
 
-    - name: Tag the Docker image
-      run: docker tag $REGISTRY/$ORG/$REPO/$LABEL:${{steps.tag.outputs.tag}} $REGISTRY/$ORG/$REPO/$LABEL:latest
+    - name: Tag the Backend Docker image as latest
+      run: docker tag $REGISTRY/$ORG/$REPO/$LABEL:${{steps.set_tag.outputs.tag}} $REGISTRY/$ORG/$REPO/$LABEL:latest
 
-    - name: Push Docker tag
+    - name: Push Backend latest tag
       run: docker push $REGISTRY/$ORG/$REPO/$LABEL:latest
+
+    - name: Build the Frontend Docker image
+      run: docker build . --file $FOLDER/Dockerfile_frontend --tag $REGISTRY/$ORG/$REPO/$FRONTEND_LABEL:${{steps.set_tag.outputs.tag}} --build-arg http_proxy="http://proxy.ethz.ch:3128" --build-arg https_proxy="http://proxy.ethz.ch:3128"
+
+    - name: Push the Frontend Docker image
+      run: docker push $REGISTRY/$ORG/$REPO/$FRONTEND_LABEL:${{steps.set_tag.outputs.tag}}
+
+    - name: Tag the Frontend Docker image as latest
+      run: docker tag $REGISTRY/$ORG/$REPO/$FRONTEND_LABEL:${{steps.set_tag.outputs.tag}} $REGISTRY/$ORG/$REPO/$FRONTEND_LABEL:latest
+
+    - name: Push Frontend latest tag
+      run: docker push $REGISTRY/$ORG/$REPO/$FRONTEND_LABEL:latest
+
+  # deploy:
+  #   # The type of runner that the job will run on
+  #   runs-on: descil-runners
+
+  #   needs:
+  #     - build
+
+  #   # Steps represent a sequence of tasks that will be executed as part of the job
+  #   steps:
+  #     - uses: azure/setup-kubectl@v3
+  #       id: install
+
+  #     - uses: azure/k8s-set-context@v4
+  #       with:
+  #         method: kubeconfig
+  #         kubeconfig: ${{ secrets.K8S_KUBECONFIG }}
+
+  #     - name: Redeploy
+  #       run: kubectl rollout restart deployment ${NS}-${LABEL} -n $NS

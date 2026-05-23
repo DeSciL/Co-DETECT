@@ -1,5 +1,8 @@
 # Co-DETECT
-***Co-DETECT***: **Co**llaborative **D**iscovery of **E**dge cases in **TE**xt **C**lassifica**T**ion
+The Repository for the EMNLP 2025 (Demo) Paper ***Co-DETECT***: **Co**llaborative **D**iscovery of **E**dge cases in **TE**xt **C**lassifica**T**ion 
+
+[![arXiv](https://img.shields.io/badge/arXiv-2507.05010-b31b1b)](https://arxiv.org/abs/2507.05010)
+[![license](https://img.shields.io/github/license/EdisonNi-hku/Co-DETECT?label=License)](https://github.com/EdisonNi-hku/Co-DETECT/blob/main/LICENSE)
 
 ### [[Demonstration Video]](https://youtu.be/jR66Idbd-1I)
 
@@ -32,14 +35,23 @@ conda create -n co_detect python=3.11.10
 conda activate co_detect
 ```
 
-### 0. API Key Configuration
+### 0. Environment Variable Configuration
 
-To use live API calls in Backend Mode, create `.env` file in `/annotation_fastapi/`:
+To use live API calls in Backend Mode, create a `.env` file in `/annotation_fastapi/` with the following variables:
+
 ```bash
-OPENAI_API_KEY=your_openai_api_key_here
-DEEPSEEK_API_KEY=your_deepseek_api_key_here
+# Required for all Azure OpenAI requests
+AZURE_API_KEY=your_azure_api_key_here
+
+# Each model uses its own connection string (endpoint, deployment, API version)
+ANNOTATION_MODEL_CONNECTION_STRING="https://your-azure-endpoint.openai.azure.com/openai/deployments/gpt-4o?api-version=2023-12-01-preview"
+REASONING_MODEL_CONNECTION_STRING="https://your-azure-endpoint.openai.azure.com/openai/deployments/gpt-5?api-version=2023-12-01-preview"
+EMBEDDING_MODEL_CONNECTION_STRING="https://your-azure-endpoint.openai.azure.com/openai/deployments/text-embedding-ada-002?api-version=2023-12-01-preview"
 ```
-**Note**: Backend Mode always makes real OpenAI and DeepSeek API calls, so ensure your API keys are set.
+
+**Note**: Each model (annotation, reasoning, embedding) must have its own Azure connection string. See `annotation_fastapi/utils.py` for details.
+
+Backend Mode always makes real Azure OpenAI API calls, so ensure your API key and connection strings are set.
 
 ### 1. Launch Backend (Only for Backend Mode)
 ```bash
@@ -134,4 +146,14 @@ Open [**Local Host**](http://localhost:5173)
 3. **Iterate**: Click "Iterate" button to re-annotate using improved guidelines
 4. **Compare Results**: View before/after annotation changes
 
+## Citation
 
+If you find our work helpful, please consider citing us: 
+```sh
+@article{xiong2025co,
+  title={Co-DETECT: Collaborative Discovery of Edge Cases in Text Classification},
+  author={Xiong, Chenfei and Ni, Jingwei and Fan, Yu and Zouhar, Vil{\'e}m and Rooein, Donya and Calvo-Bartolom{\'e}, Lorena and Hoyle, Alexander and Jin, Zhijing and Sachan, Mrinmaya and Leippold, Markus and others},
+  journal={arXiv preprint arXiv:2507.05010},
+  year={2025}
+}
+```

@@ -1,7 +1,7 @@
 import json
 import numpy as np
 import pandas as pd
-from utils import read_file_content, call_openai_annotation, parse_json_output, call_openai, parse_aggregation, parse_merge, get_embeddings_with_cache
+from utils import read_file_content, call_openai_annotation, parse_json_output, call_openai, parse_aggregation, parse_merge, get_embeddings_with_cache, EMBEDDING_MODEL_CONNECTION_STRING, REASONING_MODEL_CONNECTION_STRING, get_model_client, AZURE_API_KEY
 from typing import List, Dict
 from fastapi import UploadFile
 import logging
@@ -11,11 +11,9 @@ from sklearn.decomposition import PCA
 import os
 import datetime
 import pickle
-from openai import OpenAI
+from openai import OpenAI, AzureOpenAI
 from collections import OrderedDict
 import uuid
-
-client = OpenAI()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,6 +22,10 @@ logging.basicConfig(
 logger = logging.getLogger("services")  # Create/retrieve a named logger
 logger.setLevel(logging.INFO)
 
+logger.info(f"{EMBEDDING_MODEL_CONNECTION_STRING=}, {REASONING_MODEL_CONNECTION_STRING=}")
+
+# Configure OpenAI client for Azure
+embedding_client = get_model_client(EMBEDDING_MODEL_CONNECTION_STRING)
 
 AGGREGATION_RPOMPT = """I am annotating the following task:
 
@@ -105,7 +107,7 @@ def cluster_texts_with_pca(df, text_column='text_to_annotate', task_id=None, n_c
     logger = logging.getLogger("services")
 
     # Encode text into embeddings
-    embeddings = get_embeddings_with_cache(df[text_column].tolist(), "text-embedding-3-large", client)
+    embeddings = get_embeddings_with_cache(df[text_column].tolist(), EMBEDDING_MODEL_CONNECTION_STRING, embedding_client)
 
     pca = None
     kmeans = None
@@ -144,14 +146,15 @@ def cluster_texts_with_pca(df, text_column='text_to_annotate', task_id=None, n_c
 
 
 async def synthesize_guideline_improvements(df, guideline_text, task_id: str = None, round_string=""):
-    # Filter non-empty suggestions
+    # Filter non-empty suggestions and None values
+    df = df[df["guideline_improvement"].notna()].copy()  # Remove None/NaN values
     df = df[df["guideline_improvement"].str.strip().str.upper() != "EMPTY"].copy()
     if df.empty:
         return {}, []
     # Get text and embeddings
     suggestions = df["guideline_improvement"].tolist()
     case_descriptions = [s.strip(' \n') if '->' not in s else s.split('->')[0].strip() for s in suggestions]
-    embeddings = get_embeddings_with_cache(case_descriptions, "text-embedding-3-large", client)
+    embeddings = get_embeddings_with_cache(case_descriptions, EMBEDDING_MODEL_CONNECTION_STRING, embedding_client)
     
     # Determine appropriate number of clusters based on data size
     data_size = len(suggestions)
@@ -265,8 +268,8 @@ async def synthesize_guideline_improvements(df, guideline_text, task_id: str = N
         all_messages.append([{'role': 'user', 'content': AGGREGATION_RPOMPT.format(guideline=guideline_text, edge_case=suggestions_text)}])
 
     logger.info(f"One example aggregation prompt: {all_messages[0][0]['content']}")
-    # Send to DeepSeek-R1
-    summaries = await call_openai(all_messages, model='deepseek-reasoner')
+    # Send to reasoning model
+    summaries = await call_openai(all_messages, REASONING_MODEL_CONNECTION_STRING)
     for cluster_id, response in enumerate(summaries):
         current_cluster_results = parse_aggregation(response)
         for category in current_cluster_results:
@@ -286,7 +289,7 @@ async def synthesize_guideline_improvements(df, guideline_text, task_id: str = N
         logger.info(f'Number of new rule before merge: {len(new_rules)}.')
         cases_to_merge = "\n".join(f"{i+1}. {k}" for i, (k, v) in enumerate(new_rules.items()))
         merge_message = [{'role': 'user', 'content': MERGE_PROMPT.format(guideline=guideline_text, edge_case=cases_to_merge)}]
-        final_aggregate = await call_openai([merge_message], model='deepseek-reasoner')
+        final_aggregate = await call_openai([merge_message], REASONING_MODEL_CONNECTION_STRING)
         merge_suggestions = parse_merge(final_aggregate[0])
 
         merged_rules = OrderedDict()
@@ -467,7 +470,7 @@ async def process_annotation_one_json(
     df = pd.DataFrame({"text_to_annotate": [example], "uid": [uid]})
 
     # Get embedding for the single example
-    embeddings = get_embeddings_with_cache([example], "text-embedding-3-large", client)
+    embeddings = get_embeddings_with_cache([example], EMBEDDING_MODEL_CONNECTION_STRING, embedding_client)
     
     # Transform embedding using PCA
     reduced = pca_model.transform(embeddings)
@@ -489,9 +492,10 @@ async def process_annotation_one_json(
     df["new_edge_case"] = [data_parsed["new_edge_case"]]
     df["guideline_improvement"] = [data_parsed["new_edge_case_rule"]]
 
-    if df["guideline_improvement"][0] is not None and df["new_edge_case"][0] == True:
-        edge_case_description = df["guideline_improvement"][0].strip() if '->' not in df["guideline_improvement"][0] else df["guideline_improvement"][0].split('->')[0].strip()
-        edge_case_rule_embedding = get_embeddings_with_cache([edge_case_description], "text-embedding-3-large", client)
+    if df["guideline_improvement"][0] is not None and df["guideline_improvement"][0] != "EMPTY" and df["new_edge_case"][0] == True:
+        improvement_text = df["guideline_improvement"][0]
+        edge_case_description = improvement_text.strip() if '->' not in improvement_text else improvement_text.split('->')[0].strip()
+        edge_case_rule_embedding = get_embeddings_with_cache([edge_case_description], EMBEDDING_MODEL_CONNECTION_STRING, embedding_client)
         # Load cluster PCA model
         if os.path.exists(f'models/pca_model_{task_id}_cluster{round_string}.pkl'):
             with open(f'models/pca_model_{task_id}_cluster{round_string}.pkl', 'rb') as f:
