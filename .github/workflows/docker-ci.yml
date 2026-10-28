@@ -2,20 +2,13 @@ name: Docker CI
 
 on:
   push:
-    tags:
-      - "*"
+    tags: ['*']
 
   workflow_dispatch:
 
 env:
-  FOLDER: "."
-  GITLAB: ${{ secrets.DESCIL_REGISTRY_URL }}
-  ORG: descil
-  REPO: datascience
   HARBOR: ${{ secrets.HARBOR_REGISTRY_URL }}
   PROJECT: led
-  BACKEND_LABEL: codetect
-  FRONTEND_LABEL: codetect-frontend
 
 jobs:
   build:
@@ -24,6 +17,17 @@ jobs:
       contents: read
       packages: write
       id-token: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: codetect
+            dockerfile: Dockerfile
+            description: "Co-DETECT Backend"
+          - label: codetect-frontend
+            dockerfile: Dockerfile_frontend
+            description: "Co-DETECT Frontend"
 
     steps:
       - uses: actions/checkout@v6
@@ -36,31 +40,16 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
 
-      - name: Build the Backend Docker image
+      - name: Build the Docker image
         run: |
           docker build . \
-            --file $FOLDER/Dockerfile \
-            --tag backend-local:${{steps.version.outputs.tag}} \
-            --build-arg VERSION=${{steps.version.outputs.version}} \
+            --file ${{ matrix.dockerfile }} \
+            --tag local-image:${{ steps.version.outputs.tag }} \
+            --build-arg VERSION=${{ steps.version.outputs.version }} \
             --provenance=false \
-            --build-arg http_proxy="http://proxy.ethz.ch:3128" \
-            --build-arg https_proxy="http://proxy.ethz.ch:3128" \
             --label org.opencontainers.image.source=https://github.com/DeSciL/Co-DETECT \
-            --label org.opencontainers.image.description="Co-DETECT Backend" \
-            --label org.opencontainers.image.licenses=MIT
-
-      - name: Build the Frontend Docker image
-        run: |
-          docker build . \
-            --file $FOLDER/Dockerfile_frontend \
-            --tag frontend-local:${{steps.version.outputs.tag}} \
-            --build-arg VERSION=${{steps.version.outputs.version}} \
-            --provenance=false \
-            --build-arg http_proxy="http://proxy.ethz.ch:3128" \
-            --build-arg https_proxy="http://proxy.ethz.ch:3128" \
-            --label org.opencontainers.image.source=https://github.com/DeSciL/Co-DETECT \
-            --label org.opencontainers.image.description="Co-DETECT Frontend" \
-            --label org.opencontainers.image.licenses=MIT
+            --label org.opencontainers.image.description="${{ matrix.description }}" \
+            --label org.opencontainers.image.licenses=Apache-2.0
 
       - name: Login to Harbor
         uses: docker/login-action@v4
@@ -69,49 +58,17 @@ jobs:
           username: ${{ secrets.HARBOR_REGISTRY_USER }}
           password: ${{ secrets.HARBOR_REGISTRY_PASSWORD }}
 
-      - name: Tag and push Backend to Harbor (versioned)
+      - name: Tag and push to Harbor (versioned)
         run: |
-          docker tag backend-local:${{steps.version.outputs.tag}} $HARBOR/$PROJECT/$BACKEND_LABEL:${{steps.version.outputs.tag}}
-          docker push $HARBOR/$PROJECT/$BACKEND_LABEL:${{steps.version.outputs.tag}}
+          docker tag local-image:${{ steps.version.outputs.tag }} $HARBOR/$PROJECT/${{ matrix.label }}:${{ steps.version.outputs.tag }}
+          docker push $HARBOR/$PROJECT/${{ matrix.label }}:${{ steps.version.outputs.tag }}
 
-      - name: Tag and push Backend to Harbor (latest)
+      - name: Tag and push to Harbor (latest)
         run: |
-          docker tag backend-local:${{steps.version.outputs.tag}} $HARBOR/$PROJECT/$BACKEND_LABEL:latest
-          docker push $HARBOR/$PROJECT/$BACKEND_LABEL:latest
+          docker tag local-image:${{ steps.version.outputs.tag }} $HARBOR/$PROJECT/${{ matrix.label }}:latest
+          docker push $HARBOR/$PROJECT/${{ matrix.label }}:latest
 
-      - name: Tag and push Frontend to Harbor (versioned)
+      - name: Sign Harbor image with Cosign
         run: |
-          docker tag frontend-local:${{steps.version.outputs.tag}} $HARBOR/$PROJECT/$FRONTEND_LABEL:${{steps.version.outputs.tag}}
-          docker push $HARBOR/$PROJECT/$FRONTEND_LABEL:${{steps.version.outputs.tag}}
-
-      - name: Tag and push Frontend to Harbor (latest)
-        run: |
-          docker tag frontend-local:${{steps.version.outputs.tag}} $HARBOR/$PROJECT/$FRONTEND_LABEL:latest
-          docker push $HARBOR/$PROJECT/$FRONTEND_LABEL:latest
-
-      - name: Login to GitLab
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ secrets.DESCIL_REGISTRY_URL }}
-          username: ${{ secrets.DESCIL_REGISTRY_USER }}
-          password: ${{ secrets.DESCIL_REGISTRY_PASSWORD }}
-
-      - name: Tag and push Backend to GitLab (versioned)
-        run: |
-          docker tag backend-local:${{steps.version.outputs.tag}} $GITLAB/$ORG/$REPO/$BACKEND_LABEL:${{steps.version.outputs.tag}}
-          docker push $GITLAB/$ORG/$REPO/$BACKEND_LABEL:${{steps.version.outputs.tag}}
-
-      - name: Tag and push Backend to GitLab (latest)
-        run: |
-          docker tag backend-local:${{steps.version.outputs.tag}} $GITLAB/$ORG/$REPO/$BACKEND_LABEL:latest
-          docker push $GITLAB/$ORG/$REPO/$BACKEND_LABEL:latest
-
-      - name: Tag and push Frontend to GitLab (versioned)
-        run: |
-          docker tag frontend-local:${{steps.version.outputs.tag}} $GITLAB/$ORG/$REPO/$FRONTEND_LABEL:${{steps.version.outputs.tag}}
-          docker push $GITLAB/$ORG/$REPO/$FRONTEND_LABEL:${{steps.version.outputs.tag}}
-
-      - name: Tag and push Frontend to GitLab (latest)
-        run: |
-          docker tag frontend-local:${{steps.version.outputs.tag}} $GITLAB/$ORG/$REPO/$FRONTEND_LABEL:latest
-          docker push $GITLAB/$ORG/$REPO/$FRONTEND_LABEL:latest
+          DIGEST=$(docker buildx imagetools inspect $HARBOR/$PROJECT/${{ matrix.label }}:${{ steps.version.outputs.tag }} --format '{{json .Manifest.Digest}}' | jq -r .)
+          cosign sign --yes $HARBOR/$PROJECT/${{ matrix.label }}@$DIGEST
